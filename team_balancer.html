@@ -67,6 +67,19 @@
       flex-wrap: wrap;
       gap: 10px;
     }
+    .option-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .option-row input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--brand);
+      cursor: pointer;
+    }
 
     button {
       border: 0;
@@ -207,6 +220,10 @@
         <button id="refreshBtn">데이터 새로고침</button>
         <button id="copyBtn" disabled>결과 복사</button>
       </div>
+      <label class="option-row">
+        <input type="checkbox" id="laneBalanceMode" />
+        라인 밸런스 우선 (포지션 간 격차 최소화)
+      </label>
       <div id="casePicker" class="case-picker"></div>
       <div id="status" class="status"></div>
     </div>
@@ -247,6 +264,7 @@
       buildBtn: document.getElementById("buildBtn"),
       refreshBtn: document.getElementById("refreshBtn"),
       copyBtn: document.getElementById("copyBtn"),
+      laneBalanceMode: document.getElementById("laneBalanceMode"),
       casePicker: document.getElementById("casePicker"),
       status: document.getElementById("status"),
       activeCount: document.getElementById("activeCount"),
@@ -481,8 +499,19 @@
       }, 0);
     }
 
+    // 포지션별 점수 차이(라인 격차) 지표 계산
+    function laneGapMetrics(assignA, assignB) {
+      const scoreByRoleA = Object.fromEntries(assignA.map((x) => [x.role, x.score]));
+      const scoreByRoleB = Object.fromEntries(assignB.map((x) => [x.role, x.score]));
+      const diffs = ROLES.map((role) => Math.abs((scoreByRoleA[role] ?? 0) - (scoreByRoleB[role] ?? 0)));
+      return {
+        laneMaxDiff: Math.max(...diffs),
+        laneSumDiff: diffs.reduce((s, v) => s + v, 0),
+      };
+    }
+
     // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
-    function findBestAssignmentForSplit(teamA, teamB) {
+    function findBestAssignmentForSplit(teamA, teamB, options) {
       const assignAList = roleAssignments(teamA);
       const assignBList = roleAssignments(teamB);
       let best = null;
@@ -493,9 +522,31 @@
         for (const assignB of assignBList) {
           const totalB = totalScore(assignB);
           const diff = Math.abs(totalA - totalB);
+          const lane = laneGapMetrics(assignA, assignB);
+          const candidate = {
+            teamA: assignA,
+            teamB: assignB,
+            totalA,
+            totalB,
+            diff,
+            laneMaxDiff: lane.laneMaxDiff,
+            laneSumDiff: lane.laneSumDiff,
+          };
 
-          if (!best || diff < best.diff) {
-            best = { teamA: assignA, teamB: assignB, totalA, totalB, diff };
+          if (!best) {
+            best = candidate;
+            continue;
+          }
+
+          // 옵션 체크 시: 라인 최대 격차 -> 라인 총 격차 -> 팀 총점 차이 순으로 최적화
+          if (options?.laneBalancePriority) {
+            const betterLane =
+              candidate.laneMaxDiff < best.laneMaxDiff ||
+              (candidate.laneMaxDiff === best.laneMaxDiff && candidate.laneSumDiff < best.laneSumDiff) ||
+              (candidate.laneMaxDiff === best.laneMaxDiff && candidate.laneSumDiff === best.laneSumDiff && candidate.diff < best.diff);
+            if (betterLane) best = candidate;
+          } else if (candidate.diff < best.diff) {
+            best = candidate;
           }
         }
       }
@@ -504,7 +555,7 @@
     }
 
     // 모든 분할을 완전탐색하고 점수 차이가 작은 상위 3개 서로 다른 케이스를 반환
-    function buildTopTeamCases(players10, topN = 3) {
+    function buildTopTeamCases(players10, topN = 3, options = {}) {
       const teamASplits = combinations(players10, 5);
       const seen = new Set();
       const candidates = [];
@@ -520,13 +571,17 @@
 
         if (!hasCaller(teamA) || !hasCaller(teamB)) continue;
 
-        const bestForSplit = findBestAssignmentForSplit(teamA, teamB);
+        const bestForSplit = findBestAssignmentForSplit(teamA, teamB, options);
         if (bestForSplit) {
           candidates.push(bestForSplit);
         }
       }
 
-      candidates.sort((a, b) => a.diff - b.diff);
+      if (options?.laneBalancePriority) {
+        candidates.sort((a, b) => (a.laneMaxDiff - b.laneMaxDiff) || (a.laneSumDiff - b.laneSumDiff) || (a.diff - b.diff));
+      } else {
+        candidates.sort((a, b) => a.diff - b.diff);
+      }
       return candidates.slice(0, topN);
     }
 
@@ -710,7 +765,10 @@
         return;
       }
 
-      const topCases = buildTopTeamCases(activePlayers, 3);
+      const options = {
+        laneBalancePriority: els.laneBalanceMode.checked,
+      };
+      const topCases = buildTopTeamCases(activePlayers, 3, options);
 
       if (!topCases.length) {
         lastResult = null;
@@ -725,7 +783,8 @@
       candidateResults = topCases;
       selectedCaseIndex = 0;
       selectCase(0);
-      setStatus(`팀 구성이 완료되었습니다. (상위 ${candidateResults.length}개 경우)`, "ok");
+      const modeText = options.laneBalancePriority ? "라인 밸런스 우선" : "총점 밸런스 우선";
+      setStatus(`팀 구성이 완료되었습니다. (${modeText}, 상위 ${candidateResults.length}개 경우)`, "ok");
     }
 
     async function copyResult() {
