@@ -84,6 +84,35 @@
 
     .status.error { color: var(--danger); }
     .status.ok { color: var(--ok); }
+    .case-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .case-title {
+      font-size: 14px;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .case-btn {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .case-btn:hover { background: #f8fafc; color: var(--ink); }
+
+    .case-btn.active {
+      border-color: var(--brand);
+      color: var(--brand-strong);
+      font-weight: 700;
+    }
 
     .teams {
       display: grid;
@@ -165,6 +194,7 @@
         <button id="refreshBtn">데이터 새로고침</button>
         <button id="copyBtn" disabled>결과 복사</button>
       </div>
+      <div id="casePicker" class="case-picker"></div>
       <div id="status" class="status"></div>
     </div>
 
@@ -196,11 +226,14 @@
     let allPlayers = [];
     let activePlayers = [];
     let lastResult = null;
+    let candidateResults = [];
+    let selectedCaseIndex = 0;
 
     const els = {
       buildBtn: document.getElementById("buildBtn"),
       refreshBtn: document.getElementById("refreshBtn"),
       copyBtn: document.getElementById("copyBtn"),
+      casePicker: document.getElementById("casePicker"),
       status: document.getElementById("status"),
       activeCount: document.getElementById("activeCount"),
       lastUpdated: document.getElementById("lastUpdated"),
@@ -430,11 +463,33 @@
       return assignment.reduce((sum, x) => sum + x.score, 0);
     }
 
-    // 모든 가능한 팀 분할 + 포지션 배정을 완전탐색하여 최적 결과 선택
-    function buildBestTeams(players10) {
+    // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
+    function findBestAssignmentForSplit(teamA, teamB) {
+      const assignAList = roleAssignments(teamA);
+      const assignBList = roleAssignments(teamB);
+      let best = null;
+
+      for (const assignA of assignAList) {
+        const totalA = totalScore(assignA);
+
+        for (const assignB of assignBList) {
+          const totalB = totalScore(assignB);
+          const diff = Math.abs(totalA - totalB);
+
+          if (!best || diff < best.diff) {
+            best = { teamA: assignA, teamB: assignB, totalA, totalB, diff };
+          }
+        }
+      }
+
+      return best;
+    }
+
+    // 모든 분할을 완전탐색하고 점수 차이가 작은 상위 3개 서로 다른 케이스를 반환
+    function buildTopTeamCases(players10, topN = 3) {
       const teamASplits = combinations(players10, 5);
       const seen = new Set();
-      let best = null;
+      const candidates = [];
 
       for (const teamA of teamASplits) {
         const keyA = teamA.map((p) => p.name).sort().join("|");
@@ -447,24 +502,14 @@
 
         if (!hasCaller(teamA) || !hasCaller(teamB)) continue;
 
-        const assignAList = roleAssignments(teamA);
-        const assignBList = roleAssignments(teamB);
-
-        for (const assignA of assignAList) {
-          const totalA = totalScore(assignA);
-
-          for (const assignB of assignBList) {
-            const totalB = totalScore(assignB);
-            const diff = Math.abs(totalA - totalB);
-
-            if (!best || diff < best.diff) {
-              best = { teamA: assignA, teamB: assignB, totalA, totalB, diff };
-            }
-          }
+        const bestForSplit = findBestAssignmentForSplit(teamA, teamB);
+        if (bestForSplit) {
+          candidates.push(bestForSplit);
         }
       }
 
-      return best;
+      candidates.sort((a, b) => a.diff - b.diff);
+      return candidates.slice(0, topN);
     }
 
     function renderTeam(listEl, assignment) {
@@ -479,8 +524,7 @@
         li.className = "row";
         li.innerHTML = `
           <span class="role">${x.role}</span>
-          <span class="name">${x.player.name} (${x.player.order})</span>
-          <span class="score">${x.score}</span>
+          <span class="name">${x.player.name}</span>
         `;
         listEl.appendChild(li);
       });
@@ -506,11 +550,43 @@
       els.copyBtn.disabled = !result;
     }
 
+    function renderCasePicker() {
+      els.casePicker.innerHTML = "";
+
+      if (!candidateResults.length) return;
+
+      const title = document.createElement("span");
+      title.className = "case-title";
+      title.textContent = "추천 경우:";
+      els.casePicker.appendChild(title);
+
+      candidateResults.forEach((result, index) => {
+        const btn = document.createElement("button");
+        btn.className = `case-btn ${index === selectedCaseIndex ? "active" : ""}`.trim();
+        btn.type = "button";
+        btn.textContent = `${index + 1}안 (차이 ${result.diff})`;
+        btn.addEventListener("click", () => selectCase(index));
+        els.casePicker.appendChild(btn);
+      });
+    }
+
+    function selectCase(index) {
+      selectedCaseIndex = index;
+      lastResult = candidateResults[index] || null;
+      renderResult(lastResult);
+      renderCasePicker();
+    }
+
     function currentResultText() {
       if (!lastResult) return "복사할 결과가 없습니다.";
 
-      const linesA = lastResult.teamA.map((x) => `- ${x.role}: ${x.player.name} (${x.player.order}) ${x.score}`);
-      const linesB = lastResult.teamB.map((x) => `- ${x.role}: ${x.player.name} (${x.player.order}) ${x.score}`);
+      const linesA = lastResult.teamA.map((x) => `- ${x.role}: ${x.player.name}`);
+      const linesB = lastResult.teamB.map((x) => `- ${x.role}: ${x.player.name}`);
+      const advantageText = lastResult.diff === 0
+        ? "우세 팀: 동점"
+        : lastResult.totalA > lastResult.totalB
+          ? `우세 팀: Team A (${lastResult.diff}점 우세)`
+          : `우세 팀: Team B (${lastResult.diff}점 우세)`;
 
       return [
         "[Team A]",
@@ -522,6 +598,7 @@
         `총점: ${lastResult.totalB}`,
         "",
         `점수 차이: ${lastResult.diff}`,
+        advantageText,
       ].join("\n");
     }
 
@@ -578,7 +655,10 @@
 
     function clearResultForInvalidCount() {
       lastResult = null;
+      candidateResults = [];
+      selectedCaseIndex = 0;
       renderResult(null);
+      renderCasePicker();
       setStatus("현재 참가 인원이 10명이 아닙니다.", "error");
     }
 
@@ -605,18 +685,22 @@
         return;
       }
 
-      const best = buildBestTeams(activePlayers);
+      const topCases = buildTopTeamCases(activePlayers, 3);
 
-      if (!best) {
+      if (!topCases.length) {
         lastResult = null;
+        candidateResults = [];
+        selectedCaseIndex = 0;
         renderResult(null);
+        renderCasePicker();
         setStatus("조건을 만족하는 팀 구성을 찾지 못했습니다.", "error");
         return;
       }
 
-      lastResult = best;
-      renderResult(best);
-      setStatus("팀 구성이 완료되었습니다.", "ok");
+      candidateResults = topCases;
+      selectedCaseIndex = 0;
+      selectCase(0);
+      setStatus(`팀 구성이 완료되었습니다. (상위 ${candidateResults.length}개 경우)`, "ok");
     }
 
     async function copyResult() {
