@@ -1,0 +1,653 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoL 인하우스 팀 밸런서</title>
+  <style>
+    :root {
+      --bg: #f3f5f8;
+      --panel: #ffffff;
+      --ink: #101828;
+      --muted: #667085;
+      --line: #d0d5dd;
+      --brand: #0f766e;
+      --brand-strong: #115e59;
+      --danger: #b42318;
+      --ok: #027a48;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+      background: linear-gradient(160deg, #f8fafc 0%, #edf2f7 100%);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .topbar {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: white;
+      background: var(--brand);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--brand-strong); }
+    button:disabled { background: #98a2b3; cursor: not-allowed; }
+
+    .status {
+      min-height: 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+
+    .teams {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 250px;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px dashed #eaecf0;
+      padding-bottom: 6px;
+    }
+
+    .role {
+      font-weight: 700;
+      min-width: 72px;
+    }
+
+    .name {
+      flex: 1;
+    }
+
+    .score {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+
+    .summary {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+      font-size: 15px;
+    }
+
+    @media (max-width: 860px) {
+      .teams {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <h1>LoL 인하우스 팀 밸런서</h1>
+      <div class="meta">
+        <div id="activeCount">참가자: -</div>
+        <div id="lastUpdated">데이터 갱신: -</div>
+      </div>
+      <div class="controls">
+        <button id="buildBtn">팀 만들기</button>
+        <button id="refreshBtn">데이터 새로고침</button>
+        <button id="copyBtn" disabled>결과 복사</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="teams">
+      <section class="panel">
+        <h2>Team A</h2>
+        <ul id="teamAList" class="list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Team B</h2>
+        <ul id="teamBList" class="list"></ul>
+      </section>
+    </div>
+
+    <div class="summary" id="summary">
+      <div>Team A 총점: -</div>
+      <div>Team B 총점: -</div>
+      <div>점수 차이: -</div>
+    </div>
+  </div>
+
+  <script>
+    // 구글 시트 공개 URL (CSV 또는 gviz JSON URL)
+    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/gviz/tq?gid=0";
+
+    const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
+    const CALLERS = new Set(["보조", "메인"]);
+
+    let allPlayers = [];
+    let activePlayers = [];
+    let lastResult = null;
+
+    const els = {
+      buildBtn: document.getElementById("buildBtn"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      copyBtn: document.getElementById("copyBtn"),
+      status: document.getElementById("status"),
+      activeCount: document.getElementById("activeCount"),
+      lastUpdated: document.getElementById("lastUpdated"),
+      teamAList: document.getElementById("teamAList"),
+      teamBList: document.getElementById("teamBList"),
+      summary: document.getElementById("summary"),
+    };
+
+    // CSV 한 줄 파서 (따옴표/콤마 처리)
+    function parseCsvLine(line) {
+      const out = [];
+      let current = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          out.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+
+      out.push(current.trim());
+      return out;
+    }
+
+    // CSV 텍스트를 객체 배열로 변환
+    function parseCsv(text) {
+      const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return [];
+
+      const headers = parseCsvLine(lines[0]);
+      return lines.slice(1).map((line) => {
+        const cols = parseCsvLine(line);
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = cols[i] ?? "";
+        });
+        return obj;
+      });
+    }
+
+    // gviz JSON 응답 텍스트를 객체 배열로 변환
+    function parseGviz(text) {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start < 0 || end < 0) return [];
+
+      const json = JSON.parse(text.slice(start, end + 1));
+      return parseGvizPayload(json);
+    }
+
+    // gviz payload 객체를 객체 배열로 변환
+    function parseGvizPayload(payload) {
+      const cols = payload?.table?.cols?.map((c) => c.label) || [];
+      const rows = payload?.table?.rows || [];
+
+      return rows.map((row) => {
+        const obj = {};
+        cols.forEach((c, i) => {
+          obj[c] = row.c?.[i]?.v ?? "";
+        });
+        return obj;
+      });
+    }
+
+    // CSV/pub 링크에서 gviz URL 구성 (mode: fetch | script)
+    function buildGvizUrlFromSheetUrl(sheetUrl, mode = "script") {
+      const url = new URL(sheetUrl);
+      const gid = url.searchParams.get("gid") || "0";
+
+      if (!url.pathname.includes("/gviz/tq")) {
+        url.pathname = url.pathname
+          .replace(/\/pubhtml$/, "/gviz/tq")
+          .replace(/\/pub$/, "/gviz/tq");
+      }
+
+      url.search = "";
+      url.searchParams.set("gid", gid);
+
+      // fetch로 읽을 때는 파싱하기 쉬운 JSON 형태를 사용
+      if (mode === "fetch") {
+        url.searchParams.set("tqx", "out:json");
+      }
+
+      return url.toString();
+    }
+
+    // script 태그로 gviz 호출 (file://에서도 CORS 우회 가능)
+    function loadViaGvizScript(gvizUrl, timeoutMs = 10000) {
+      return new Promise((resolve, reject) => {
+        const previousSetResponse = window.google?.visualization?.Query?.setResponse;
+        const script = document.createElement("script");
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error("gviz 스크립트 로드 시간 초과"));
+        }, timeoutMs);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          script.remove();
+          if (previousSetResponse) {
+            window.google.visualization.Query.setResponse = previousSetResponse;
+          }
+        }
+
+        window.google = window.google || {};
+        window.google.visualization = window.google.visualization || {};
+        window.google.visualization.Query = window.google.visualization.Query || {};
+        window.google.visualization.Query.setResponse = (payload) => {
+          cleanup();
+          try {
+            resolve(parseGvizPayload(payload));
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("gviz 스크립트 로드 실패"));
+        };
+
+        script.src = `${gvizUrl}${gvizUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+        document.head.appendChild(script);
+      });
+    }
+
+    // 원시 데이터를 앱에서 사용할 플레이어 구조로 정규화
+    function normalizePlayers(rows) {
+      return rows.map((r) => ({
+        name: String(r["이름"] ?? "").trim(),
+        Top: Number(r["Top"]),
+        Jungle: Number(r["Jungle"]),
+        Mid: Number(r["Mid"]),
+        ADC: Number(r["ADC"]),
+        Support: Number(r["Support"]),
+        order: String(r["오더"] ?? "").trim(),
+        participate: String(r["참가"] ?? "").trim(),
+      })).filter((p) => p.name);
+    }
+
+    // 입력 데이터 유효성 검사
+    function isValidPlayer(p) {
+      const roleScoresValid = ROLES.every((role) => Number.isInteger(p[role]) && p[role] >= 1 && p[role] <= 10);
+      const orderValid = ["불가", "보조", "메인"].includes(p.order);
+      const partValid = ["O", "X"].includes(p.participate);
+      return roleScoresValid && orderValid && partValid;
+    }
+
+    function setStatus(msg, type = "") {
+      els.status.textContent = msg;
+      els.status.className = `status ${type}`.trim();
+    }
+
+    function nowKstString() {
+      return new Date().toLocaleString("ko-KR", { hour12: false });
+    }
+
+    // n명 중 k명 조합 생성
+    function combinations(arr, k) {
+      const result = [];
+      function dfs(start, picked) {
+        if (picked.length === k) {
+          result.push([...picked]);
+          return;
+        }
+        for (let i = start; i < arr.length; i++) {
+          picked.push(arr[i]);
+          dfs(i + 1, picked);
+          picked.pop();
+        }
+      }
+      dfs(0, []);
+      return result;
+    }
+
+    // 팀 5명에 대해 모든 포지션 배정(5! = 120)을 생성
+    function roleAssignments(teamPlayers) {
+      const out = [];
+      const used = Array(teamPlayers.length).fill(false);
+      const current = [];
+
+      function permute(depth) {
+        if (depth === ROLES.length) {
+          out.push(current.map((entry) => ({ ...entry })));
+          return;
+        }
+
+        for (let i = 0; i < teamPlayers.length; i++) {
+          if (used[i]) continue;
+          used[i] = true;
+
+          const player = teamPlayers[i];
+          const role = ROLES[depth];
+          current.push({
+            role,
+            player,
+            score: player[role],
+          });
+
+          permute(depth + 1);
+
+          current.pop();
+          used[i] = false;
+        }
+      }
+
+      permute(0);
+      return out;
+    }
+
+    function hasCaller(teamPlayers) {
+      return teamPlayers.some((p) => CALLERS.has(p.order));
+    }
+
+    function totalScore(assignment) {
+      return assignment.reduce((sum, x) => sum + x.score, 0);
+    }
+
+    // 모든 가능한 팀 분할 + 포지션 배정을 완전탐색하여 최적 결과 선택
+    function buildBestTeams(players10) {
+      const teamASplits = combinations(players10, 5);
+      const seen = new Set();
+      let best = null;
+
+      for (const teamA of teamASplits) {
+        const keyA = teamA.map((p) => p.name).sort().join("|");
+        const teamB = players10.filter((p) => !teamA.includes(p));
+        const keyB = teamB.map((p) => p.name).sort().join("|");
+        const pairKey = [keyA, keyB].sort().join("::");
+
+        if (seen.has(pairKey)) continue;
+        seen.add(pairKey);
+
+        if (!hasCaller(teamA) || !hasCaller(teamB)) continue;
+
+        const assignAList = roleAssignments(teamA);
+        const assignBList = roleAssignments(teamB);
+
+        for (const assignA of assignAList) {
+          const totalA = totalScore(assignA);
+
+          for (const assignB of assignBList) {
+            const totalB = totalScore(assignB);
+            const diff = Math.abs(totalA - totalB);
+
+            if (!best || diff < best.diff) {
+              best = { teamA: assignA, teamB: assignB, totalA, totalB, diff };
+            }
+          }
+        }
+      }
+
+      return best;
+    }
+
+    function renderTeam(listEl, assignment) {
+      listEl.innerHTML = "";
+
+      if (!assignment) {
+        return;
+      }
+
+      assignment.forEach((x) => {
+        const li = document.createElement("li");
+        li.className = "row";
+        li.innerHTML = `
+          <span class="role">${x.role}</span>
+          <span class="name">${x.player.name} (${x.player.order})</span>
+          <span class="score">${x.score}</span>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    function renderSummary(result) {
+      if (!result) {
+        els.summary.innerHTML = "<div>Team A 총점: -</div><div>Team B 총점: -</div><div>점수 차이: -</div>";
+        return;
+      }
+
+      els.summary.innerHTML = `
+        <div>Team A 총점: ${result.totalA}</div>
+        <div>Team B 총점: ${result.totalB}</div>
+        <div>점수 차이: ${result.diff}</div>
+      `;
+    }
+
+    function renderResult(result) {
+      renderTeam(els.teamAList, result?.teamA);
+      renderTeam(els.teamBList, result?.teamB);
+      renderSummary(result);
+      els.copyBtn.disabled = !result;
+    }
+
+    function currentResultText() {
+      if (!lastResult) return "복사할 결과가 없습니다.";
+
+      const linesA = lastResult.teamA.map((x) => `- ${x.role}: ${x.player.name} (${x.player.order}) ${x.score}`);
+      const linesB = lastResult.teamB.map((x) => `- ${x.role}: ${x.player.name} (${x.player.order}) ${x.score}`);
+
+      return [
+        "[Team A]",
+        ...linesA,
+        `총점: ${lastResult.totalA}`,
+        "",
+        "[Team B]",
+        ...linesB,
+        `총점: ${lastResult.totalB}`,
+        "",
+        `점수 차이: ${lastResult.diff}`,
+      ].join("\n");
+    }
+
+    // 시트 데이터 로드 (fetch 우선, 실패 시 gviz script 폴백)
+    async function loadSheetData() {
+      if (!SHEET_URL || SHEET_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_URL_HERE")) {
+        throw new Error("SHEET_URL에 공개된 Google Sheet URL을 넣어주세요.");
+      }
+
+      let rows = [];
+      let fetchError = null;
+
+      try {
+        const fetchUrl = SHEET_URL.includes("/gviz/tq")
+          ? buildGvizUrlFromSheetUrl(SHEET_URL, "fetch")
+          : SHEET_URL;
+
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(`데이터 요청 실패: ${res.status}`);
+        }
+
+        const text = await res.text();
+        rows = fetchUrl.includes("gviz") ? parseGviz(text) : parseCsv(text);
+      } catch (err) {
+        fetchError = err;
+      }
+
+      // file://(드래그 실행) 환경에서 fetch 실패 시 gviz 스크립트 방식으로 재시도
+      if (!rows.length) {
+        try {
+          const gvizUrl = buildGvizUrlFromSheetUrl(SHEET_URL);
+          rows = await loadViaGvizScript(gvizUrl);
+        } catch {
+          if (fetchError) {
+            throw new Error(`데이터 로드 실패: ${fetchError.message}`);
+          }
+          throw new Error("데이터 로드 실패: 시트 공개 상태와 URL 형식을 확인하세요.");
+        }
+      }
+
+      const players = normalizePlayers(rows);
+      const invalid = players.filter((p) => !isValidPlayer(p));
+      if (invalid.length > 0) {
+        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~10), 오더(불가/보조/메인), 참가(O/X)를 확인하세요.`);
+      }
+
+      allPlayers = players;
+      activePlayers = players.filter((p) => p.participate === "O");
+
+      els.activeCount.textContent = `참가자: ${activePlayers.length}명`;
+      els.lastUpdated.textContent = `데이터 갱신: ${nowKstString()}`;
+    }
+
+    function clearResultForInvalidCount() {
+      lastResult = null;
+      renderResult(null);
+      setStatus("현재 참가 인원이 10명이 아닙니다.", "error");
+    }
+
+    async function refreshData(showStatus = true) {
+      try {
+        await loadSheetData();
+
+        // 자동 새로고침은 현재 결과를 깨지 않도록 상태 텍스트만 갱신
+        if (showStatus) {
+          setStatus("데이터를 불러왔습니다.", "ok");
+        }
+
+        if (activePlayers.length !== 10) {
+          clearResultForInvalidCount();
+        }
+      } catch (err) {
+        setStatus(err.message || "데이터 로드 중 오류가 발생했습니다.", "error");
+      }
+    }
+
+    function buildTeams() {
+      if (activePlayers.length !== 10) {
+        clearResultForInvalidCount();
+        return;
+      }
+
+      const best = buildBestTeams(activePlayers);
+
+      if (!best) {
+        lastResult = null;
+        renderResult(null);
+        setStatus("조건을 만족하는 팀 구성을 찾지 못했습니다.", "error");
+        return;
+      }
+
+      lastResult = best;
+      renderResult(best);
+      setStatus("팀 구성이 완료되었습니다.", "ok");
+    }
+
+    async function copyResult() {
+      if (!lastResult) return;
+      const text = currentResultText();
+
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatus("결과를 클립보드에 복사했습니다.", "ok");
+      } catch {
+        setStatus("복사에 실패했습니다. 브라우저 권한을 확인하세요.", "error");
+      }
+    }
+
+    function initEvents() {
+      els.buildBtn.addEventListener("click", buildTeams);
+      els.refreshBtn.addEventListener("click", () => refreshData(true));
+      els.copyBtn.addEventListener("click", copyResult);
+    }
+
+    async function init() {
+      initEvents();
+      await refreshData(false);
+
+      // 5초 주기로 자동 새로고침
+      setInterval(() => {
+        refreshData(false);
+      }, 5000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
