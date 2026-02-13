@@ -23,7 +23,11 @@
     body {
       margin: 0;
       font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-      background: url("./ZaOpQoKgVkajauVsaGYqHW43s0kuF0FlL239GcKMPAvb6qGkoimt8q-5fp_udtWmOBNe3rAaKwfSgrB4ZWKLsK0fWho5KfPpy9eYk41V1Rsf5rgJPs0y-LVAffnx3RNx8af7xCPkgkGXGAK3AY9aNg.webp") center / cover no-repeat fixed;
+      background-image: url("./ZaOpQoKgVkajauVsaGYqHW43s0kuF0FlL239GcKMPAvb6qGkoimt8q-5fp_udtWmOBNe3rAaKwfSgrB4ZWKLsK0fWho5KfPpy9eYk41V1Rsf5rgJPs0y-LVAffnx3RNx8af7xCPkgkGXGAK3AY9aNg.webp");
+      background-position: center center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: scroll;
       color: var(--ink);
       min-height: 100vh;
       padding: 24px;
@@ -207,6 +211,11 @@
     }
 
     @media (max-width: 860px) {
+      body {
+        background-size: contain;
+        background-position: top center;
+      }
+
       .teams {
         grid-template-columns: 1fr;
       }
