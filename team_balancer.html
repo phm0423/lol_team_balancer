@@ -6,15 +6,16 @@
   <title>LoL 인하우스 팀 밸런서</title>
   <style>
     :root {
-      --bg: #f3f5f8;
+      --bg: #eef3f8;
       --panel: #ffffff;
-      --ink: #101828;
-      --muted: #667085;
-      --line: #d0d5dd;
-      --brand: #0f766e;
-      --brand-strong: #115e59;
-      --danger: #b42318;
-      --ok: #027a48;
+      --ink: #0b1f3b;
+      --muted: #5f6f86;
+      --line: #d7deea;
+      --brand: #0d6efd;
+      --brand-strong: #0a58ca;
+      --danger: #c1121f;
+      --ok: #0a7f52;
+      --shadow: 0 10px 26px rgba(11, 31, 59, 0.08);
     }
 
     * { box-sizing: border-box; }
@@ -22,7 +23,10 @@
     body {
       margin: 0;
       font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-      background: linear-gradient(160deg, #f8fafc 0%, #edf2f7 100%);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(13, 110, 253, 0.1), transparent 36%),
+        radial-gradient(circle at 90% 0%, rgba(24, 185, 126, 0.12), transparent 28%),
+        linear-gradient(170deg, #f8fbff 0%, #edf3fa 100%);
       color: var(--ink);
       min-height: 100vh;
       padding: 24px;
@@ -38,10 +42,11 @@
     .topbar {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 18px;
       display: grid;
       gap: 12px;
+      box-shadow: var(--shadow);
     }
 
     h1 {
@@ -65,15 +70,17 @@
 
     button {
       border: 0;
-      border-radius: 10px;
-      padding: 10px 14px;
+      border-radius: 12px;
+      padding: 10px 15px;
       color: white;
       background: var(--brand);
       font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
+      transition: transform 0.12s ease, background-color 0.12s ease;
     }
 
-    button:hover { background: var(--brand-strong); }
+    button:hover { background: var(--brand-strong); transform: translateY(-1px); }
     button:disabled { background: #98a2b3; cursor: not-allowed; }
 
     .status {
@@ -101,7 +108,7 @@
       border: 1px solid var(--line);
       background: #ffffff;
       color: var(--ink);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 6px 10px;
       font-size: 13px;
       cursor: pointer;
@@ -123,9 +130,10 @@
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 16px;
       min-height: 250px;
+      box-shadow: var(--shadow);
     }
 
     .panel h2 {
@@ -143,35 +151,40 @@
     }
 
     .row {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 84px 1fr;
       gap: 10px;
-      border-bottom: 1px dashed #eaecf0;
-      padding-bottom: 6px;
+      align-items: center;
+      border: 1px solid #e7edf7;
+      background: #f8fbff;
+      border-radius: 10px;
+      padding: 8px 10px;
     }
 
     .role {
       font-weight: 700;
-      min-width: 72px;
+      text-align: center;
+      background: #e8f0ff;
+      color: #18407a;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 13px;
     }
 
     .name {
-      flex: 1;
-    }
-
-    .score {
-      font-variant-numeric: tabular-nums;
-      color: var(--muted);
+      text-align: center;
+      font-weight: 600;
     }
 
     .summary {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 14px 16px;
       display: grid;
       gap: 6px;
       font-size: 15px;
+      box-shadow: var(--shadow);
     }
 
     @media (max-width: 860px) {
@@ -222,6 +235,7 @@
 
     const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
     const CALLERS = new Set(["보조", "메인"]);
+    const CALLER_WEIGHT = { 메인: 3, 보조: 1, 불가: 0 };
 
     let allPlayers = [];
     let activePlayers = [];
@@ -460,7 +474,11 @@
     }
 
     function totalScore(assignment) {
-      return assignment.reduce((sum, x) => sum + x.score, 0);
+      return assignment.reduce((sum, x) => {
+        const roleScore = x.score;
+        const callerScore = CALLER_WEIGHT[x.player.order] ?? 0;
+        return sum + roleScore + callerScore;
+      }, 0);
     }
 
     // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
@@ -532,14 +550,21 @@
 
     function renderSummary(result) {
       if (!result) {
-        els.summary.innerHTML = "<div>Team A 총점: -</div><div>Team B 총점: -</div><div>점수 차이: -</div>";
+        els.summary.innerHTML = "<div>Team A 총점: -</div><div>Team B 총점: -</div><div>점수 차이: -</div><div>우세 팀: -</div>";
         return;
       }
+
+      const advantageText = result.diff === 0
+        ? "동점"
+        : result.totalA > result.totalB
+          ? `Team A (${result.diff}점 우세)`
+          : `Team B (${result.diff}점 우세)`;
 
       els.summary.innerHTML = `
         <div>Team A 총점: ${result.totalA}</div>
         <div>Team B 총점: ${result.totalB}</div>
         <div>점수 차이: ${result.diff}</div>
+        <div>우세 팀: ${advantageText}</div>
       `;
     }
 
