@@ -73,12 +73,21 @@
       gap: 8px;
       font-size: 14px;
       color: var(--muted);
+      flex-wrap: wrap;
     }
     .option-row input {
       width: 16px;
       height: 16px;
       accent-color: var(--brand);
       cursor: pointer;
+    }
+    .option-row select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 4px 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
     }
 
     button {
@@ -224,6 +233,16 @@
         <input type="checkbox" id="laneBalanceMode" />
         라인 밸런스 우선 (포지션 간 격차 최소화)
       </label>
+      <label class="option-row">
+        <input type="checkbox" id="minRoleScoreEnabled" />
+        저숙련 라인 제한 (최소 포지션 점수 N)
+        <select id="minRoleScoreSelect">
+          <option value="2" selected>2 (1점 라인 금지)</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </label>
       <div id="casePicker" class="case-picker"></div>
       <div id="status" class="status"></div>
     </div>
@@ -265,6 +284,8 @@
       refreshBtn: document.getElementById("refreshBtn"),
       copyBtn: document.getElementById("copyBtn"),
       laneBalanceMode: document.getElementById("laneBalanceMode"),
+      minRoleScoreEnabled: document.getElementById("minRoleScoreEnabled"),
+      minRoleScoreSelect: document.getElementById("minRoleScoreSelect"),
       casePicker: document.getElementById("casePicker"),
       status: document.getElementById("status"),
       activeCount: document.getElementById("activeCount"),
@@ -510,16 +531,23 @@
       };
     }
 
+    function assignmentPassesMinRoleScore(assignment, minRoleScore) {
+      return assignment.every((x) => x.score >= minRoleScore);
+    }
+
     // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
     function findBestAssignmentForSplit(teamA, teamB, options) {
       const assignAList = roleAssignments(teamA);
       const assignBList = roleAssignments(teamB);
       let best = null;
+      const minRoleScore = options?.minRoleScoreEnabled ? options.minRoleScore : 1;
 
       for (const assignA of assignAList) {
+        if (!assignmentPassesMinRoleScore(assignA, minRoleScore)) continue;
         const totalA = totalScore(assignA);
 
         for (const assignB of assignBList) {
+          if (!assignmentPassesMinRoleScore(assignB, minRoleScore)) continue;
           const totalB = totalScore(assignB);
           const diff = Math.abs(totalA - totalB);
           const lane = laneGapMetrics(assignA, assignB);
@@ -767,6 +795,8 @@
 
       const options = {
         laneBalancePriority: els.laneBalanceMode.checked,
+        minRoleScoreEnabled: els.minRoleScoreEnabled.checked,
+        minRoleScore: Number(els.minRoleScoreSelect.value),
       };
       const topCases = buildTopTeamCases(activePlayers, 3, options);
 
@@ -784,7 +814,8 @@
       selectedCaseIndex = 0;
       selectCase(0);
       const modeText = options.laneBalancePriority ? "라인 밸런스 우선" : "총점 밸런스 우선";
-      setStatus(`팀 구성이 완료되었습니다. (${modeText}, 상위 ${candidateResults.length}개 경우)`, "ok");
+      const minScoreText = options.minRoleScoreEnabled ? `, 최소 포지션 점수 ${options.minRoleScore}` : "";
+      setStatus(`팀 구성이 완료되었습니다. (${modeText}${minScoreText}, 상위 ${candidateResults.length}개 경우)`, "ok");
     }
 
     async function copyResult() {
