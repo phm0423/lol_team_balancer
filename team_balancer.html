@@ -276,8 +276,6 @@
     const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/pub?output=csv";
 
     const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
-    const CALLERS = new Set(["보조", "메인"]);
-    const CALLER_WEIGHT = { 메인: 3, 보조: 1, 불가: 0 };
 
     let allPlayers = [];
     let activePlayers = [];
@@ -439,17 +437,17 @@
         Mid: Number(r["Mid"]),
         ADC: Number(r["ADC"]),
         Support: Number(r["Support"]),
-        order: String(r["오더"] ?? "").trim(),
+        callPower: r["오더력"] === "" || r["오더력"] == null ? 0 : Number(r["오더력"]),
         participate: String(r["참가"] ?? "").trim(),
       })).filter((p) => p.name);
     }
 
     // 입력 데이터 유효성 검사
     function isValidPlayer(p) {
-      const roleScoresValid = ROLES.every((role) => Number.isInteger(p[role]) && p[role] >= 1 && p[role] <= 10);
-      const orderValid = ["불가", "보조", "메인"].includes(p.order);
+      const roleScoresValid = ROLES.every((role) => Number.isFinite(p[role]) && p[role] >= 1 && p[role] <= 10);
+      const callPowerValid = Number.isFinite(p.callPower) && p.callPower >= 0 && p.callPower <= 10;
       const partValid = ["O", "X"].includes(p.participate);
-      return roleScoresValid && orderValid && partValid;
+      return roleScoresValid && callPowerValid && partValid;
     }
 
     function setStatus(msg, type = "") {
@@ -514,14 +512,10 @@
       return out;
     }
 
-    function hasCaller(teamPlayers) {
-      return teamPlayers.some((p) => CALLERS.has(p.order));
-    }
-
     function totalScore(assignment) {
       return assignment.reduce((sum, x) => {
         const roleScore = x.score;
-        const callerScore = CALLER_WEIGHT[x.player.order] ?? 0;
+        const callerScore = x.player.callPower ?? 0;
         return sum + roleScore + callerScore;
       }, 0);
     }
@@ -602,8 +596,6 @@
 
         if (seen.has(pairKey)) continue;
         seen.add(pairKey);
-
-        if (!hasCaller(teamA) || !hasCaller(teamB)) continue;
 
         const bestForSplit = findBestAssignmentForSplit(teamA, teamB, options);
         if (bestForSplit) {
@@ -757,7 +749,7 @@
       const players = normalizePlayers(rows);
       const invalid = players.filter((p) => !isValidPlayer(p));
       if (invalid.length > 0) {
-        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~10), 오더(불가/보조/메인), 참가(O/X)를 확인하세요.`);
+        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~10), 오더력(0~10), 참가(O/X)를 확인하세요.`);
       }
 
       allPlayers = players;
