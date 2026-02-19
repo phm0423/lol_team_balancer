@@ -467,12 +467,27 @@
     }
 
     // 입력 데이터 유효성 검사
+    function playerValidationErrors(p) {
+      const errors = [];
+      ROLES.forEach((role) => {
+        if (!Number.isInteger(p[role]) || p[role] < 1 || p[role] > 100) {
+          errors.push(`${role}:${p[role]}`);
+        }
+      });
+      if (!Number.isInteger(p.callPower) || p.callPower < 0 || p.callPower > 100) {
+        errors.push(`오더력:${p.callPower}`);
+      }
+      if (!["O", "X"].includes(p.participate)) {
+        errors.push(`참가:${p.participate}`);
+      }
+      if (!(p.fixedRole === "" || ROLES.includes(p.fixedRole))) {
+        errors.push(`고정포지션:${p.fixedRole}`);
+      }
+      return errors;
+    }
+
     function isValidPlayer(p) {
-      const roleScoresValid = ROLES.every((role) => Number.isInteger(p[role]) && p[role] >= 1 && p[role] <= 100);
-      const callPowerValid = Number.isInteger(p.callPower) && p.callPower >= 0 && p.callPower <= 100;
-      const partValid = ["O", "X"].includes(p.participate);
-      const fixedRoleValid = p.fixedRole === "" || ROLES.includes(p.fixedRole);
-      return roleScoresValid && callPowerValid && partValid && fixedRoleValid;
+      return playerValidationErrors(p).length === 0;
     }
 
     function setStatus(msg, type = "") {
@@ -791,7 +806,11 @@
       const players = normalizePlayers(rows);
       const invalid = players.filter((p) => !isValidPlayer(p));
       if (invalid.length > 0) {
-        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`);
+        const details = invalid
+          .slice(0, 3)
+          .map((p) => `${p.name}[${playerValidationErrors(p).join(", ")}]`)
+          .join(" / ");
+        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. ${details} | 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`);
       }
 
       allPlayers = players;
