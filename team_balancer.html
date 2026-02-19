@@ -243,10 +243,10 @@
         <input type="checkbox" id="minRoleScoreEnabled" />
         저숙련 라인 제한 (최소 포지션 점수 N)
         <select id="minRoleScoreSelect">
-          <option value="2" selected>2 (1점 라인 금지)</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
+          <option value="20" selected>20 (10점 라인 금지)</option>
+          <option value="30">30</option>
+          <option value="40">40</option>
+          <option value="50">50</option>
         </select>
       </label>
       <div id="casePicker" class="case-picker"></div>
@@ -276,6 +276,22 @@
     const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/pub?output=csv";
 
     const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
+    const FIXED_ROLE_MAP = {
+      top: "Top",
+      jungle: "Jungle",
+      mid: "Mid",
+      adc: "ADC",
+      support: "Support",
+      탑: "Top",
+      정글: "Jungle",
+      미드: "Mid",
+      원딜: "ADC",
+      원거리딜러: "ADC",
+      바텀: "ADC",
+      서폿: "Support",
+      서포터: "Support",
+      서포트: "Support",
+    };
 
     let allPlayers = [];
     let activePlayers = [];
@@ -429,6 +445,13 @@
     }
 
     // 원시 데이터를 앱에서 사용할 플레이어 구조로 정규화
+    function normalizeFixedRole(raw) {
+      const text = String(raw ?? "").trim();
+      if (!text || text === "-" || text === "자동") return "";
+      const mapped = FIXED_ROLE_MAP[text.toLowerCase()];
+      return mapped ?? text;
+    }
+
     function normalizePlayers(rows) {
       return rows.map((r) => ({
         name: String(r["이름"] ?? "").trim(),
@@ -439,15 +462,17 @@
         Support: Number(r["Support"]),
         callPower: r["오더력"] === "" || r["오더력"] == null ? 0 : Number(r["오더력"]),
         participate: String(r["참가"] ?? "").trim(),
+        fixedRole: normalizeFixedRole(r["고정포지션"]),
       })).filter((p) => p.name);
     }
 
     // 입력 데이터 유효성 검사
     function isValidPlayer(p) {
-      const roleScoresValid = ROLES.every((role) => Number.isFinite(p[role]) && p[role] >= 1 && p[role] <= 10);
-      const callPowerValid = Number.isFinite(p.callPower) && p.callPower >= 0 && p.callPower <= 10;
+      const roleScoresValid = ROLES.every((role) => Number.isInteger(p[role]) && p[role] >= 1 && p[role] <= 100);
+      const callPowerValid = Number.isInteger(p.callPower) && p.callPower >= 0 && p.callPower <= 100;
       const partValid = ["O", "X"].includes(p.participate);
-      return roleScoresValid && callPowerValid && partValid;
+      const fixedRoleValid = p.fixedRole === "" || ROLES.includes(p.fixedRole);
+      return roleScoresValid && callPowerValid && partValid && fixedRoleValid;
     }
 
     function setStatus(msg, type = "") {
@@ -495,6 +520,11 @@
 
           const player = teamPlayers[i];
           const role = ROLES[depth];
+          const fixedRole = player.fixedRole ?? "";
+          if (fixedRole && fixedRole !== role) {
+            used[i] = false;
+            continue;
+          }
           current.push({
             role,
             player,
@@ -510,6 +540,15 @@
 
       permute(0);
       return out;
+    }
+
+    function hasDuplicateFixedRole(teamPlayers) {
+      const counts = {};
+      teamPlayers.forEach((p) => {
+        if (!p.fixedRole) return;
+        counts[p.fixedRole] = (counts[p.fixedRole] ?? 0) + 1;
+      });
+      return Object.values(counts).some((count) => count > 1);
     }
 
     function totalScore(assignment) {
@@ -537,6 +576,9 @@
 
     // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
     function findBestAssignmentForSplit(teamA, teamB, options) {
+      if (hasDuplicateFixedRole(teamA) || hasDuplicateFixedRole(teamB)) {
+        return null;
+      }
       const assignAList = roleAssignments(teamA);
       const assignBList = roleAssignments(teamB);
       let best = null;
@@ -749,7 +791,7 @@
       const players = normalizePlayers(rows);
       const invalid = players.filter((p) => !isValidPlayer(p));
       if (invalid.length > 0) {
-        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~10), 오더력(0~10), 참가(O/X)를 확인하세요.`);
+        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`);
       }
 
       allPlayers = players;
