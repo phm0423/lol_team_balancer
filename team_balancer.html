@@ -863,6 +863,32 @@
         setStatus("드래그로 포지션을 임시 변경했습니다.", "ok");
       }
 
+      function applyManualCrossTeamSwap(fromTeam, fromIndex, toTeam, toIndex) {
+        if (!lastResult) return;
+        const fromAssignment = fromTeam === "A" ? lastResult.teamA : lastResult.teamB;
+        const toAssignment = toTeam === "A" ? lastResult.teamA : lastResult.teamB;
+        if (!fromAssignment || !toAssignment) return;
+        if (
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= fromAssignment.length ||
+          toIndex >= toAssignment.length
+        ) {
+          return;
+        }
+
+        const temp = fromAssignment[fromIndex];
+        fromAssignment[fromIndex] = toAssignment[toIndex];
+        toAssignment[toIndex] = temp;
+
+        lastResult.teamA = remapAssignmentToRoles(lastResult.teamA);
+        lastResult.teamB = remapAssignmentToRoles(lastResult.teamB);
+        recalcResultMetrics(lastResult);
+        renderResult(lastResult);
+        renderCasePicker();
+        setStatus("드래그로 A/B 팀 간 인원을 교체했습니다.", "ok");
+      }
+
       function handleRowDragStart(event) {
         const row = event.currentTarget;
         dragState = {
@@ -877,7 +903,6 @@
       function handleRowDragOver(event) {
         if (!dragState) return;
         const row = event.currentTarget;
-        if (row.dataset.team !== dragState.team) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         row.classList.add("drop-target");
@@ -894,8 +919,11 @@
         if (!dragState) return;
         const toTeam = row.dataset.team;
         const toIndex = Number(row.dataset.index);
-        if (toTeam !== dragState.team) return;
-        applyManualRoleReorder(toTeam, dragState.index, toIndex);
+        if (toTeam === dragState.team) {
+          applyManualRoleReorder(toTeam, dragState.index, toIndex);
+          return;
+        }
+        applyManualCrossTeamSwap(dragState.team, dragState.index, toTeam, toIndex);
       }
 
       function handleRowDragEnd(event) {
