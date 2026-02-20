@@ -395,7 +395,7 @@
       </div>
 
       <section class="matchup-panel">
-        <h2>상대 전적</h2>
+        <h2>전적</h2>
         <div class="matchup-controls">
           <select id="matchupPlayerSelect"></select>
           <select id="matchupOpponentSelect"></select>
@@ -1300,11 +1300,11 @@
         els.matchupSummary.innerHTML = `
           <div class="matchup-cell"><strong>기준 선수</strong>${playerName}</div>
           <div class="matchup-cell"><strong>상대</strong>${opponent}</div>
-          <div class="matchup-cell"><strong>전체 전적(시트1)</strong>${overallWin}승 ${overallLose}패 (${overallRate})</div>
-          <div class="matchup-cell"><strong>전체 게임 수(시트1)</strong>${overallGames}</div>
-          <div class="matchup-cell"><strong>상대전적(시트2)</strong>${opponent === "전체" ? "-" : `${versusWins}승 ${versusLosses}패`}</div>
-          <div class="matchup-cell"><strong>상대 승률(시트2)</strong>${opponent === "전체" ? "-" : versusRate}</div>
-          <div class="matchup-cell"><strong>상대전적 게임 수</strong>${opponent === "전체" ? "-" : versusGames}</div>
+          <div class="matchup-cell"><strong>전체 전적</strong>${overallWin}승 ${overallLose}패 (${overallRate})</div>
+          <div class="matchup-cell"><strong>전체 게임 수(</strong>${overallGames}</div>
+          <div class="matchup-cell"><strong>상대 전적</strong>${opponent === "전체" ? "-" : `${versusWins}승 ${versusLosses}패`}</div>
+          <div class="matchup-cell"><strong>상대 승률</strong>${opponent === "전체" ? "-" : versusRate}</div>
+          <div class="matchup-cell"><strong>상대 전적 게임 수</strong>${opponent === "전체" ? "-" : versusGames}</div>
           <div class="matchup-cell"><strong>기준</strong>No. 동일 경기 기준 집계</div>
         `;
       }
