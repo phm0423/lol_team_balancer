@@ -1,912 +1,1101 @@
 ﻿<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoL 내전 멸망전</title>
-  <style>
-    :root {
-      --bg: #eef3f8;
-      --panel: rgba(255, 255, 255, 0.8);
-      --ink: #0b1f3b;
-      --muted: #5f6f86;
-      --line: #d7deea;
-      --brand: #0d6efd;
-      --brand-strong: #0a58ca;
-      --danger: #c1121f;
-      --ok: #0a7f52;
-      --shadow: 0 10px 26px rgba(11, 31, 59, 0.08);
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoL 내전 멸망전</title>
+    <style>
+      :root {
+        --bg: #eef3f8;
+        --panel: rgba(255, 255, 255, 0.8);
+        --ink: #0b1f3b;
+        --muted: #5f6f86;
+        --line: #d7deea;
+        --brand: #0d6efd;
+        --brand-strong: #0a58ca;
+        --danger: #c1121f;
+        --ok: #0a7f52;
+        --shadow: 0 10px 26px rgba(11, 31, 59, 0.08);
+      }
 
-    * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
 
-    body {
-      margin: 0;
-      font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-      background-image: url("./ZaOpQoKgVkajauVsaGYqHW43s0kuF0FlL239GcKMPAvb6qGkoimt8q-5fp_udtWmOBNe3rAaKwfSgrB4ZWKLsK0fWho5KfPpy9eYk41V1Rsf5rgJPs0y-LVAffnx3RNx8af7xCPkgkGXGAK3AY9aNg.webp");
-      background-position: center center;
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-attachment: scroll;
-      color: var(--ink);
-      min-height: 100vh;
-      padding: 24px;
-    }
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 16px;
-    }
-
-    .topbar {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 18px;
-      display: grid;
-      gap: 12px;
-      box-shadow: var(--shadow);
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .option-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: var(--muted);
-      flex-wrap: wrap;
-    }
-    .option-row input {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--brand);
-      cursor: pointer;
-    }
-    .option-row select {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 4px 8px;
-      background: #fff;
-      color: var(--ink);
-      font-size: 13px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 10px 15px;
-      color: white;
-      background: var(--brand);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.12s ease, background-color 0.12s ease;
-    }
-
-    button:hover { background: var(--brand-strong); transform: translateY(-1px); }
-    button:disabled { background: #98a2b3; cursor: not-allowed; }
-
-    .status {
-      min-height: 22px;
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .status.error { color: var(--danger); }
-    .status.ok { color: var(--ok); }
-    .case-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .case-title {
-      font-size: 14px;
-      color: var(--muted);
-      margin-right: 4px;
-    }
-
-    .case-btn {
-      border: 1px solid var(--line);
-      background: #ffffff;
-      color: var(--ink);
-      border-radius: 10px;
-      padding: 6px 10px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .case-btn:hover { background: #f8fafc; color: var(--ink); }
-
-    .case-btn.active {
-      border-color: var(--brand);
-      color: var(--brand-strong);
-      font-weight: 700;
-    }
-
-    .teams {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px;
-      min-height: 250px;
-      box-shadow: var(--shadow);
-    }
-
-    .panel h2 {
-      margin-top: 0;
-      margin-bottom: 12px;
-      font-size: 18px;
-    }
-
-    .list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 8px;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 84px 1fr;
-      gap: 10px;
-      align-items: center;
-      border: 1px solid #e7edf7;
-      background: #f8fbff;
-      border-radius: 10px;
-      padding: 8px 10px;
-    }
-
-    .role {
-      font-weight: 700;
-      text-align: center;
-      background: #e8f0ff;
-      color: #18407a;
-      border-radius: 8px;
-      padding: 5px 8px;
-      font-size: 13px;
-    }
-
-    .name {
-      text-align: center;
-      font-weight: 600;
-    }
-
-    .summary {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 14px 16px;
-      display: grid;
-      gap: 6px;
-      font-size: 15px;
-      box-shadow: var(--shadow);
-    }
-
-    @media (max-width: 860px), (hover: none) and (pointer: coarse) {
       body {
-        background-size: 100% auto;
-        background-position: top center;
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+        background-image: url("./ZaOpQoKgVkajauVsaGYqHW43s0kuF0FlL239GcKMPAvb6qGkoimt8q-5fp_udtWmOBNe3rAaKwfSgrB4ZWKLsK0fWho5KfPpy9eYk41V1Rsf5rgJPs0y-LVAffnx3RNx8af7xCPkgkGXGAK3AY9aNg.webp");
+        background-position: center center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: scroll;
+        color: var(--ink);
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      .topbar {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px;
+        display: grid;
+        gap: 12px;
+        box-shadow: var(--shadow);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .option-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--muted);
+        flex-wrap: wrap;
+      }
+      .option-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--brand);
+        cursor: pointer;
+      }
+      .option-row select {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 4px 8px;
+        background: #fff;
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 15px;
+        color: white;
+        background: var(--brand);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 0.12s ease,
+          background-color 0.12s ease;
+      }
+
+      button:hover {
+        background: var(--brand-strong);
+        transform: translateY(-1px);
+      }
+      button:disabled {
+        background: #98a2b3;
+        cursor: not-allowed;
+      }
+
+      .status {
+        min-height: 22px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+      .status.ok {
+        color: var(--ok);
+      }
+      .case-picker {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .case-title {
+        font-size: 14px;
+        color: var(--muted);
+        margin-right: 4px;
+      }
+
+      .case-btn {
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: var(--ink);
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .case-btn:hover {
+        background: #f8fafc;
+        color: var(--ink);
+      }
+
+      .case-btn.active {
+        border-color: var(--brand);
+        color: var(--brand-strong);
+        font-weight: 700;
       }
 
       .teams {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
       }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="topbar">
-      <h1>LoL 내전 멸망전</h1>
-      <div class="meta">
-        <div id="activeCount">참가자: -</div>
-        <div id="lastUpdated">데이터 갱신: -</div>
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        min-height: 250px;
+        box-shadow: var(--shadow);
+      }
+
+      .panel h2 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-size: 18px;
+      }
+
+      .list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .rowA {
+        display: grid;
+        grid-template-columns: 84px 1fr 80px;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid #e7edf7;
+        background: #f8fbff;
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+
+      .roleA {
+        font-weight: 700;
+        text-align: center;
+        background: #e8f0ff;
+        color: #18407a;
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-size: 13px;
+      }
+
+      .rowB {
+        display: grid;
+        grid-template-columns: 84px 1fr 80px;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid #f7e7e7;
+        background: #fff8f8;
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+
+      .roleB {
+        font-weight: 700;
+        text-align: center;
+        background: #ffe8e8;
+        color: #7a1818;
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-size: 13px;
+      }
+
+      .name {
+        text-align: center;
+        font-weight: 600;
+      }
+
+      .win-rate {
+        text-align: center;
+        font-weight: 600;
+      }
+
+      .summary {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: grid;
+        gap: 6px;
+        font-size: 15px;
+        box-shadow: var(--shadow);
+      }
+
+      .win-button {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+      }
+
+      @media (max-width: 860px), (hover: none) and (pointer: coarse) {
+        body {
+          background-size: 100% auto;
+          background-position: top center;
+        }
+
+        .teams {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <h1>LoL 내전 멸망전</h1>
+        <div class="meta">
+          <div id="activeCount">참가자: -</div>
+          <div id="lastUpdated">데이터 갱신: -</div>
+        </div>
+        <div class="controls">
+          <button id="buildBtn">팀 만들기</button>
+          <button id="refreshBtn">데이터 새로고침</button>
+          <button id="copyBtn" disabled>결과 복사</button>
+        </div>
+        <label class="option-row">
+          <input type="checkbox" id="laneBalanceMode" />
+          라인 밸런스 우선 (포지션 간 격차 최소화)
+        </label>
+        <label class="option-row">
+          <input type="checkbox" id="minRoleScoreEnabled" />
+          저숙련 라인 제한 (최소 포지션 점수 N)
+          <select id="minRoleScoreSelect">
+            <option value="20" selected>20 (10점 라인 금지)</option>
+            <option value="30">30</option>
+            <option value="40">40</option>
+            <option value="50">50</option>
+          </select>
+        </label>
+        <div id="casePicker" class="case-picker"></div>
+        <div id="status" class="status"></div>
       </div>
-      <div class="controls">
-        <button id="buildBtn">팀 만들기</button>
-        <button id="refreshBtn">데이터 새로고침</button>
-        <button id="copyBtn" disabled>결과 복사</button>
+      <div>
+        <div class="teams">
+          <section class="panel">
+            <h2>Team A</h2>
+            <ul id="teamAList" class="list"></ul>
+          </section>
+          <section class="panel">
+            <h2>Team B</h2>
+            <ul id="teamBList" class="list"></ul>
+          </section>
+        </div>
+        <div class="win-button">
+          <button onClick="winPoint('A')">A팀 승리</button>
+          <button style="background-color: red" onClick="winPoint('B')">
+            B팀 승리
+          </button>
+        </div>
       </div>
-      <label class="option-row">
-        <input type="checkbox" id="laneBalanceMode" />
-        라인 밸런스 우선 (포지션 간 격차 최소화)
-      </label>
-      <label class="option-row">
-        <input type="checkbox" id="minRoleScoreEnabled" />
-        저숙련 라인 제한 (최소 포지션 점수 N)
-        <select id="minRoleScoreSelect">
-          <option value="20" selected>20 (10점 라인 금지)</option>
-          <option value="30">30</option>
-          <option value="40">40</option>
-          <option value="50">50</option>
-        </select>
-      </label>
-      <div id="casePicker" class="case-picker"></div>
-      <div id="status" class="status"></div>
+
+      <div class="summary" id="summary">
+        <div>Team A 총점: -</div>
+        <div>Team B 총점: -</div>
+        <div>점수 차이: -</div>
+      </div>
     </div>
 
-    <div class="teams">
-      <section class="panel">
-        <h2>Team A</h2>
-        <ul id="teamAList" class="list"></ul>
-      </section>
-      <section class="panel">
-        <h2>Team B</h2>
-        <ul id="teamBList" class="list"></ul>
-      </section>
-    </div>
+    <script>
+      // 구글 시트 공개 URL (CSV 또는 gviz JSON URL)
+      const SHEET_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/pub?output=csv";
 
-    <div class="summary" id="summary">
-      <div>Team A 총점: -</div>
-      <div>Team B 총점: -</div>
-      <div>점수 차이: -</div>
-    </div>
-  </div>
-
-  <script>
-    // 구글 시트 공개 URL (CSV 또는 gviz JSON URL)
-    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/pub?output=csv";
-
-    const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
-    const FIXED_ROLE_MAP = {
-      top: "Top",
-      jungle: "Jungle",
-      mid: "Mid",
-      adc: "ADC",
-      support: "Support",
-      탑: "Top",
-      정글: "Jungle",
-      미드: "Mid",
-      원딜: "ADC",
-      원거리딜러: "ADC",
-      바텀: "ADC",
-      서폿: "Support",
-      서포터: "Support",
-      서포트: "Support",
-    };
-
-    let allPlayers = [];
-    let activePlayers = [];
-    let lastResult = null;
-    let candidateResults = [];
-    let selectedCaseIndex = 0;
-
-    const els = {
-      buildBtn: document.getElementById("buildBtn"),
-      refreshBtn: document.getElementById("refreshBtn"),
-      copyBtn: document.getElementById("copyBtn"),
-      laneBalanceMode: document.getElementById("laneBalanceMode"),
-      minRoleScoreEnabled: document.getElementById("minRoleScoreEnabled"),
-      minRoleScoreSelect: document.getElementById("minRoleScoreSelect"),
-      casePicker: document.getElementById("casePicker"),
-      status: document.getElementById("status"),
-      activeCount: document.getElementById("activeCount"),
-      lastUpdated: document.getElementById("lastUpdated"),
-      teamAList: document.getElementById("teamAList"),
-      teamBList: document.getElementById("teamBList"),
-      summary: document.getElementById("summary"),
-    };
-
-    // CSV 한 줄 파서 (따옴표/콤마 처리)
-    function parseCsvLine(line) {
-      const out = [];
-      let current = "";
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (ch === "," && !inQuotes) {
-          out.push(current.trim());
-          current = "";
-        } else {
-          current += ch;
-        }
-      }
-
-      out.push(current.trim());
-      return out;
-    }
-
-    // CSV 텍스트를 객체 배열로 변환
-    function parseCsv(text) {
-      const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) return [];
-
-      const headers = parseCsvLine(lines[0]);
-      return lines.slice(1).map((line) => {
-        const cols = parseCsvLine(line);
-        const obj = {};
-        headers.forEach((h, i) => {
-          obj[h] = cols[i] ?? "";
-        });
-        return obj;
-      });
-    }
-
-    // gviz JSON 응답 텍스트를 객체 배열로 변환
-    function parseGviz(text) {
-      const start = text.indexOf("{");
-      const end = text.lastIndexOf("}");
-      if (start < 0 || end < 0) return [];
-
-      const json = JSON.parse(text.slice(start, end + 1));
-      return parseGvizPayload(json);
-    }
-
-    // gviz payload 객체를 객체 배열로 변환
-    function parseGvizPayload(payload) {
-      const cols = payload?.table?.cols?.map((c) => c.label) || [];
-      const rows = payload?.table?.rows || [];
-
-      return rows.map((row) => {
-        const obj = {};
-        cols.forEach((c, i) => {
-          obj[c] = row.c?.[i]?.v ?? "";
-        });
-        return obj;
-      });
-    }
-
-    // CSV/pub 링크에서 gviz URL 구성 (mode: fetch | script)
-    function buildGvizUrlFromSheetUrl(sheetUrl, mode = "script") {
-      const url = new URL(sheetUrl);
-      const gid = url.searchParams.get("gid") || "0";
-
-      if (!url.pathname.includes("/gviz/tq")) {
-        url.pathname = url.pathname
-          .replace(/\/pubhtml$/, "/gviz/tq")
-          .replace(/\/pub$/, "/gviz/tq");
-      }
-
-      url.search = "";
-      url.searchParams.set("gid", gid);
-
-      // fetch로 읽을 때는 파싱하기 쉬운 JSON 형태를 사용
-      if (mode === "fetch") {
-        url.searchParams.set("tqx", "out:json");
-      }
-
-      return url.toString();
-    }
-
-    // script 태그로 gviz 호출 (file://에서도 CORS 우회 가능)
-    function loadViaGvizScript(gvizUrl, timeoutMs = 10000) {
-      return new Promise((resolve, reject) => {
-        const previousSetResponse = window.google?.visualization?.Query?.setResponse;
-        const script = document.createElement("script");
-        const timeout = setTimeout(() => {
-          cleanup();
-          reject(new Error("gviz 스크립트 로드 시간 초과"));
-        }, timeoutMs);
-
-        function cleanup() {
-          clearTimeout(timeout);
-          script.remove();
-          if (previousSetResponse) {
-            window.google.visualization.Query.setResponse = previousSetResponse;
-          }
-        }
-
-        window.google = window.google || {};
-        window.google.visualization = window.google.visualization || {};
-        window.google.visualization.Query = window.google.visualization.Query || {};
-        window.google.visualization.Query.setResponse = (payload) => {
-          cleanup();
-          try {
-            resolve(parseGvizPayload(payload));
-          } catch (err) {
-            reject(err);
-          }
-        };
-
-        script.onerror = () => {
-          cleanup();
-          reject(new Error("gviz 스크립트 로드 실패"));
-        };
-
-        script.src = `${gvizUrl}${gvizUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
-        document.head.appendChild(script);
-      });
-    }
-
-    // 원시 데이터를 앱에서 사용할 플레이어 구조로 정규화
-    function normalizeFixedRole(raw) {
-      const text = String(raw ?? "").trim();
-      if (!text || text === "-" || text === "자동") return "";
-      const mapped = FIXED_ROLE_MAP[text.toLowerCase()];
-      return mapped ?? text;
-    }
-
-    function normalizePlayers(rows) {
-      return rows.map((r) => ({
-        name: String(r["이름"] ?? "").trim(),
-        Top: Number(r["Top"]),
-        Jungle: Number(r["Jungle"]),
-        Mid: Number(r["Mid"]),
-        ADC: Number(r["ADC"]),
-        Support: Number(r["Support"]),
-        callPower: r["오더력"] === "" || r["오더력"] == null ? 0 : Number(r["오더력"]),
-        participate: String(r["참가"] ?? "").trim(),
-        fixedRole: normalizeFixedRole(r["고정포지션"]),
-      })).filter((p) => p.name);
-    }
-
-    // 입력 데이터 유효성 검사
-    function playerValidationErrors(p) {
-      const errors = [];
-      ROLES.forEach((role) => {
-        if (!Number.isInteger(p[role]) || p[role] < 1 || p[role] > 100) {
-          errors.push(`${role}:${p[role]}`);
-        }
-      });
-      if (!Number.isInteger(p.callPower) || p.callPower < 0 || p.callPower > 100) {
-        errors.push(`오더력:${p.callPower}`);
-      }
-      if (!["O", "X"].includes(p.participate)) {
-        errors.push(`참가:${p.participate}`);
-      }
-      if (!(p.fixedRole === "" || ROLES.includes(p.fixedRole))) {
-        errors.push(`고정포지션:${p.fixedRole}`);
-      }
-      return errors;
-    }
-
-    function isValidPlayer(p) {
-      return playerValidationErrors(p).length === 0;
-    }
-
-    function setStatus(msg, type = "") {
-      els.status.textContent = msg;
-      els.status.className = `status ${type}`.trim();
-    }
-
-    function nowKstString() {
-      return new Date().toLocaleString("ko-KR", { hour12: false });
-    }
-
-    // n명 중 k명 조합 생성
-    function combinations(arr, k) {
-      const result = [];
-      function dfs(start, picked) {
-        if (picked.length === k) {
-          result.push([...picked]);
-          return;
-        }
-        for (let i = start; i < arr.length; i++) {
-          picked.push(arr[i]);
-          dfs(i + 1, picked);
-          picked.pop();
-        }
-      }
-      dfs(0, []);
-      return result;
-    }
-
-    // 팀 5명에 대해 모든 포지션 배정(5! = 120)을 생성
-    function roleAssignments(teamPlayers) {
-      const out = [];
-      const used = Array(teamPlayers.length).fill(false);
-      const current = [];
-
-      function permute(depth) {
-        if (depth === ROLES.length) {
-          out.push(current.map((entry) => ({ ...entry })));
-          return;
-        }
-
-        for (let i = 0; i < teamPlayers.length; i++) {
-          if (used[i]) continue;
-          used[i] = true;
-
-          const player = teamPlayers[i];
-          const role = ROLES[depth];
-          const fixedRole = player.fixedRole ?? "";
-          if (fixedRole && fixedRole !== role) {
-            used[i] = false;
-            continue;
-          }
-          current.push({
-            role,
-            player,
-            score: player[role],
-          });
-
-          permute(depth + 1);
-
-          current.pop();
-          used[i] = false;
-        }
-      }
-
-      permute(0);
-      return out;
-    }
-
-    function hasDuplicateFixedRole(teamPlayers) {
-      const counts = {};
-      teamPlayers.forEach((p) => {
-        if (!p.fixedRole) return;
-        counts[p.fixedRole] = (counts[p.fixedRole] ?? 0) + 1;
-      });
-      return Object.values(counts).some((count) => count > 1);
-    }
-
-    function totalScore(assignment) {
-      return assignment.reduce((sum, x) => {
-        const roleScore = x.score;
-        const callerScore = x.player.callPower ?? 0;
-        return sum + roleScore + callerScore;
-      }, 0);
-    }
-
-    // 포지션별 점수 차이(라인 격차) 지표 계산
-    function laneGapMetrics(assignA, assignB) {
-      const scoreByRoleA = Object.fromEntries(assignA.map((x) => [x.role, x.score]));
-      const scoreByRoleB = Object.fromEntries(assignB.map((x) => [x.role, x.score]));
-      const diffs = ROLES.map((role) => Math.abs((scoreByRoleA[role] ?? 0) - (scoreByRoleB[role] ?? 0)));
-      return {
-        laneMaxDiff: Math.max(...diffs),
-        laneSumDiff: diffs.reduce((s, v) => s + v, 0),
+      const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
+      const FIXED_ROLE_MAP = {
+        top: "Top",
+        jungle: "Jungle",
+        mid: "Mid",
+        adc: "ADC",
+        support: "Support",
+        탑: "Top",
+        정글: "Jungle",
+        미드: "Mid",
+        원딜: "ADC",
+        원거리딜러: "ADC",
+        바텀: "ADC",
+        서폿: "Support",
+        서포터: "Support",
+        서포트: "Support",
       };
-    }
 
-    function assignmentPassesMinRoleScore(assignment, minRoleScore) {
-      return assignment.every((x) => x.score >= minRoleScore);
-    }
+      let allPlayers = [];
+      let activePlayers = [];
+      let lastResult = null;
+      let candidateResults = [];
+      let selectedCaseIndex = 0;
 
-    // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
-    function findBestAssignmentForSplit(teamA, teamB, options) {
-      if (hasDuplicateFixedRole(teamA) || hasDuplicateFixedRole(teamB)) {
-        return null;
+      const els = {
+        buildBtn: document.getElementById("buildBtn"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        copyBtn: document.getElementById("copyBtn"),
+        laneBalanceMode: document.getElementById("laneBalanceMode"),
+        minRoleScoreEnabled: document.getElementById("minRoleScoreEnabled"),
+        minRoleScoreSelect: document.getElementById("minRoleScoreSelect"),
+        casePicker: document.getElementById("casePicker"),
+        status: document.getElementById("status"),
+        activeCount: document.getElementById("activeCount"),
+        lastUpdated: document.getElementById("lastUpdated"),
+        teamAList: document.getElementById("teamAList"),
+        teamBList: document.getElementById("teamBList"),
+        summary: document.getElementById("summary"),
+      };
+
+      // CSV 한 줄 파서 (따옴표/콤마 처리)
+      function parseCsvLine(line) {
+        const out = [];
+        let current = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === "," && !inQuotes) {
+            out.push(current.trim());
+            current = "";
+          } else {
+            current += ch;
+          }
+        }
+
+        out.push(current.trim());
+        return out;
       }
-      const assignAList = roleAssignments(teamA);
-      const assignBList = roleAssignments(teamB);
-      let best = null;
-      const minRoleScore = options?.minRoleScoreEnabled ? options.minRoleScore : 1;
 
-      for (const assignA of assignAList) {
-        if (!assignmentPassesMinRoleScore(assignA, minRoleScore)) continue;
-        const totalA = totalScore(assignA);
+      // CSV 텍스트를 객체 배열로 변환
+      function parseCsv(text) {
+        const lines = text
+          .replace(/^\uFEFF/, "")
+          .split(/\r?\n/)
+          .filter(Boolean);
+        if (lines.length < 2) return [];
 
-        for (const assignB of assignBList) {
-          if (!assignmentPassesMinRoleScore(assignB, minRoleScore)) continue;
-          const totalB = totalScore(assignB);
-          const diff = Math.abs(totalA - totalB);
-          const lane = laneGapMetrics(assignA, assignB);
-          const candidate = {
-            teamA: assignA,
-            teamB: assignB,
-            totalA,
-            totalB,
-            diff,
-            laneMaxDiff: lane.laneMaxDiff,
-            laneSumDiff: lane.laneSumDiff,
+        const headers = parseCsvLine(lines[0]);
+        return lines.slice(1).map((line) => {
+          const cols = parseCsvLine(line);
+          const obj = {};
+          headers.forEach((h, i) => {
+            obj[h] = cols[i] ?? "";
+          });
+          return obj;
+        });
+      }
+
+      // gviz JSON 응답 텍스트를 객체 배열로 변환
+      function parseGviz(text) {
+        const start = text.indexOf("{");
+        const end = text.lastIndexOf("}");
+        if (start < 0 || end < 0) return [];
+
+        const json = JSON.parse(text.slice(start, end + 1));
+        return parseGvizPayload(json);
+      }
+
+      // gviz payload 객체를 객체 배열로 변환
+      function parseGvizPayload(payload) {
+        const cols = payload?.table?.cols?.map((c) => c.label) || [];
+        const rows = payload?.table?.rows || [];
+
+        return rows.map((row) => {
+          const obj = {};
+          cols.forEach((c, i) => {
+            obj[c] = row.c?.[i]?.v ?? "";
+          });
+          return obj;
+        });
+      }
+
+      // CSV/pub 링크에서 gviz URL 구성 (mode: fetch | script)
+      function buildGvizUrlFromSheetUrl(sheetUrl, mode = "script") {
+        const url = new URL(sheetUrl);
+        const gid = url.searchParams.get("gid") || "0";
+
+        if (!url.pathname.includes("/gviz/tq")) {
+          url.pathname = url.pathname
+            .replace(/\/pubhtml$/, "/gviz/tq")
+            .replace(/\/pub$/, "/gviz/tq");
+        }
+
+        url.search = "";
+        url.searchParams.set("gid", gid);
+
+        // fetch로 읽을 때는 파싱하기 쉬운 JSON 형태를 사용
+        if (mode === "fetch") {
+          url.searchParams.set("tqx", "out:json");
+        }
+
+        return url.toString();
+      }
+
+      // script 태그로 gviz 호출 (file://에서도 CORS 우회 가능)
+      function loadViaGvizScript(gvizUrl, timeoutMs = 10000) {
+        return new Promise((resolve, reject) => {
+          const previousSetResponse =
+            window.google?.visualization?.Query?.setResponse;
+          const script = document.createElement("script");
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("gviz 스크립트 로드 시간 초과"));
+          }, timeoutMs);
+
+          function cleanup() {
+            clearTimeout(timeout);
+            script.remove();
+            if (previousSetResponse) {
+              window.google.visualization.Query.setResponse =
+                previousSetResponse;
+            }
+          }
+
+          window.google = window.google || {};
+          window.google.visualization = window.google.visualization || {};
+          window.google.visualization.Query =
+            window.google.visualization.Query || {};
+          window.google.visualization.Query.setResponse = (payload) => {
+            cleanup();
+            try {
+              resolve(parseGvizPayload(payload));
+            } catch (err) {
+              reject(err);
+            }
           };
 
-          if (!best) {
-            best = candidate;
-            continue;
-          }
+          script.onerror = () => {
+            cleanup();
+            reject(new Error("gviz 스크립트 로드 실패"));
+          };
 
-          // 옵션 체크 시: 라인 최대 격차 -> 라인 총 격차 -> 팀 총점 차이 순으로 최적화
-          if (options?.laneBalancePriority) {
-            const betterLane =
-              candidate.laneMaxDiff < best.laneMaxDiff ||
-              (candidate.laneMaxDiff === best.laneMaxDiff && candidate.laneSumDiff < best.laneSumDiff) ||
-              (candidate.laneMaxDiff === best.laneMaxDiff && candidate.laneSumDiff === best.laneSumDiff && candidate.diff < best.diff);
-            if (betterLane) best = candidate;
-          } else if (candidate.diff < best.diff) {
-            best = candidate;
+          script.src = `${gvizUrl}${gvizUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+          document.head.appendChild(script);
+        });
+      }
+
+      // 원시 데이터를 앱에서 사용할 플레이어 구조로 정규화
+      function normalizeFixedRole(raw) {
+        const text = String(raw ?? "").trim();
+        if (!text || text === "-" || text === "자동") return "";
+        const mapped = FIXED_ROLE_MAP[text.toLowerCase()];
+        return mapped ?? text;
+      }
+
+      function normalizePlayers(rows) {
+        return rows
+          .map((r) => ({
+            name: String(r["이름"] ?? "").trim(),
+            Top: Number(r["Top"]),
+            Jungle: Number(r["Jungle"]),
+            Mid: Number(r["Mid"]),
+            ADC: Number(r["ADC"]),
+            Support: Number(r["Support"]),
+            callPower:
+              r["오더력"] === "" || r["오더력"] == null
+                ? 0
+                : Number(r["오더력"]),
+            participate: String(r["참가"] ?? "").trim(),
+            fixedRole: normalizeFixedRole(r["고정포지션"]),
+
+            win: Number(r["승"] ?? 0),
+            lose: Number(r["패"] ?? 0),
+            winRate: r["승률"] ?? 0,
+          }))
+          .filter((p) => p.name);
+      }
+
+      // 입력 데이터 유효성 검사
+      function playerValidationErrors(p) {
+        const errors = [];
+        ROLES.forEach((role) => {
+          if (!Number.isInteger(p[role]) || p[role] < 1 || p[role] > 100) {
+            errors.push(`${role}:${p[role]}`);
+          }
+        });
+        if (
+          !Number.isInteger(p.callPower) ||
+          p.callPower < 0 ||
+          p.callPower > 100
+        ) {
+          errors.push(`오더력:${p.callPower}`);
+        }
+        if (!["O", "X"].includes(p.participate)) {
+          errors.push(`참가:${p.participate}`);
+        }
+        if (!(p.fixedRole === "" || ROLES.includes(p.fixedRole))) {
+          errors.push(`고정포지션:${p.fixedRole}`);
+        }
+        return errors;
+      }
+
+      function isValidPlayer(p) {
+        return playerValidationErrors(p).length === 0;
+      }
+
+      function setStatus(msg, type = "") {
+        els.status.textContent = msg;
+        els.status.className = `status ${type}`.trim();
+      }
+
+      function nowKstString() {
+        return new Date().toLocaleString("ko-KR", { hour12: false });
+      }
+
+      // n명 중 k명 조합 생성
+      function combinations(arr, k) {
+        const result = [];
+        function dfs(start, picked) {
+          if (picked.length === k) {
+            result.push([...picked]);
+            return;
+          }
+          for (let i = start; i < arr.length; i++) {
+            picked.push(arr[i]);
+            dfs(i + 1, picked);
+            picked.pop();
           }
         }
+        dfs(0, []);
+        return result;
       }
 
-      return best;
-    }
+      // 팀 5명에 대해 모든 포지션 배정(5! = 120)을 생성
+      function roleAssignments(teamPlayers) {
+        const out = [];
+        const used = Array(teamPlayers.length).fill(false);
+        const current = [];
 
-    // 모든 분할을 완전탐색하고 점수 차이가 작은 상위 3개 서로 다른 케이스를 반환
-    function buildTopTeamCases(players10, topN = 3, options = {}) {
-      const teamASplits = combinations(players10, 5);
-      const seen = new Set();
-      const candidates = [];
+        function permute(depth) {
+          if (depth === ROLES.length) {
+            out.push(current.map((entry) => ({ ...entry })));
+            return;
+          }
 
-      for (const teamA of teamASplits) {
-        const keyA = teamA.map((p) => p.name).sort().join("|");
-        const teamB = players10.filter((p) => !teamA.includes(p));
-        const keyB = teamB.map((p) => p.name).sort().join("|");
-        const pairKey = [keyA, keyB].sort().join("::");
+          for (let i = 0; i < teamPlayers.length; i++) {
+            if (used[i]) continue;
+            used[i] = true;
 
-        if (seen.has(pairKey)) continue;
-        seen.add(pairKey);
+            const player = teamPlayers[i];
+            const role = ROLES[depth];
+            const fixedRole = player.fixedRole ?? "";
+            if (fixedRole && fixedRole !== role) {
+              used[i] = false;
+              continue;
+            }
+            current.push({
+              role,
+              player,
+              score: player[role],
+            });
 
-        const bestForSplit = findBestAssignmentForSplit(teamA, teamB, options);
-        if (bestForSplit) {
-          candidates.push(bestForSplit);
+            permute(depth + 1);
+
+            current.pop();
+            used[i] = false;
+          }
         }
+
+        permute(0);
+        return out;
       }
 
-      if (options?.laneBalancePriority) {
-        candidates.sort((a, b) => (a.laneMaxDiff - b.laneMaxDiff) || (a.laneSumDiff - b.laneSumDiff) || (a.diff - b.diff));
-      } else {
-        candidates.sort((a, b) => a.diff - b.diff);
-      }
-      return candidates.slice(0, topN);
-    }
-
-    function renderTeam(listEl, assignment) {
-      listEl.innerHTML = "";
-
-      if (!assignment) {
-        return;
+      function hasDuplicateFixedRole(teamPlayers) {
+        const counts = {};
+        teamPlayers.forEach((p) => {
+          if (!p.fixedRole) return;
+          counts[p.fixedRole] = (counts[p.fixedRole] ?? 0) + 1;
+        });
+        return Object.values(counts).some((count) => count > 1);
       }
 
-      assignment.forEach((x) => {
-        const li = document.createElement("li");
-        li.className = "row";
-        li.innerHTML = `
-          <span class="role">${x.role}</span>
+      function totalScore(assignment) {
+        return assignment.reduce((sum, x) => {
+          const roleScore = x.score;
+          const callerScore = x.player.callPower ?? 0;
+          return sum + roleScore + callerScore;
+        }, 0);
+      }
+
+      // 포지션별 점수 차이(라인 격차) 지표 계산
+      function laneGapMetrics(assignA, assignB) {
+        const scoreByRoleA = Object.fromEntries(
+          assignA.map((x) => [x.role, x.score]),
+        );
+        const scoreByRoleB = Object.fromEntries(
+          assignB.map((x) => [x.role, x.score]),
+        );
+        const diffs = ROLES.map((role) =>
+          Math.abs((scoreByRoleA[role] ?? 0) - (scoreByRoleB[role] ?? 0)),
+        );
+        return {
+          laneMaxDiff: Math.max(...diffs),
+          laneSumDiff: diffs.reduce((s, v) => s + v, 0),
+        };
+      }
+
+      function assignmentPassesMinRoleScore(assignment, minRoleScore) {
+        return assignment.every((x) => x.score >= minRoleScore);
+      }
+
+      // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
+      function findBestAssignmentForSplit(teamA, teamB, options) {
+        if (hasDuplicateFixedRole(teamA) || hasDuplicateFixedRole(teamB)) {
+          return null;
+        }
+        const assignAList = roleAssignments(teamA);
+        const assignBList = roleAssignments(teamB);
+        let best = null;
+        const minRoleScore = options?.minRoleScoreEnabled
+          ? options.minRoleScore
+          : 1;
+
+        for (const assignA of assignAList) {
+          if (!assignmentPassesMinRoleScore(assignA, minRoleScore)) continue;
+          const totalA = totalScore(assignA);
+
+          for (const assignB of assignBList) {
+            if (!assignmentPassesMinRoleScore(assignB, minRoleScore)) continue;
+            const totalB = totalScore(assignB);
+            const diff = Math.abs(totalA - totalB);
+            const lane = laneGapMetrics(assignA, assignB);
+            const candidate = {
+              teamA: assignA,
+              teamB: assignB,
+              totalA,
+              totalB,
+              diff,
+              laneMaxDiff: lane.laneMaxDiff,
+              laneSumDiff: lane.laneSumDiff,
+            };
+
+            if (!best) {
+              best = candidate;
+              continue;
+            }
+
+            // 옵션 체크 시: 라인 최대 격차 -> 라인 총 격차 -> 팀 총점 차이 순으로 최적화
+            if (options?.laneBalancePriority) {
+              const betterLane =
+                candidate.laneMaxDiff < best.laneMaxDiff ||
+                (candidate.laneMaxDiff === best.laneMaxDiff &&
+                  candidate.laneSumDiff < best.laneSumDiff) ||
+                (candidate.laneMaxDiff === best.laneMaxDiff &&
+                  candidate.laneSumDiff === best.laneSumDiff &&
+                  candidate.diff < best.diff);
+              if (betterLane) best = candidate;
+            } else if (candidate.diff < best.diff) {
+              best = candidate;
+            }
+          }
+        }
+
+        return best;
+      }
+
+      // 모든 분할을 완전탐색하고 점수 차이가 작은 상위 3개 서로 다른 케이스를 반환
+      function buildTopTeamCases(players10, topN = 3, options = {}) {
+        const teamASplits = combinations(players10, 5);
+        const seen = new Set();
+        const candidates = [];
+
+        for (const teamA of teamASplits) {
+          const keyA = teamA
+            .map((p) => p.name)
+            .sort()
+            .join("|");
+          const teamB = players10.filter((p) => !teamA.includes(p));
+          const keyB = teamB
+            .map((p) => p.name)
+            .sort()
+            .join("|");
+          const pairKey = [keyA, keyB].sort().join("::");
+
+          if (seen.has(pairKey)) continue;
+          seen.add(pairKey);
+
+          const bestForSplit = findBestAssignmentForSplit(
+            teamA,
+            teamB,
+            options,
+          );
+          if (bestForSplit) {
+            candidates.push(bestForSplit);
+          }
+        }
+
+        if (options?.laneBalancePriority) {
+          candidates.sort(
+            (a, b) =>
+              a.laneMaxDiff - b.laneMaxDiff ||
+              a.laneSumDiff - b.laneSumDiff ||
+              a.diff - b.diff,
+          );
+        } else {
+          candidates.sort((a, b) => a.diff - b.diff);
+        }
+        return candidates.slice(0, topN);
+      }
+
+      function renderTeamA(listEl, assignment) {
+        listEl.innerHTML = "";
+
+        if (!assignment) {
+          return;
+        }
+
+        assignment.forEach((x) => {
+          const li = document.createElement("li");
+          li.className = "rowA";
+          li.innerHTML = `
+          <span class="roleA">${x.role}</span>
           <span class="name">${x.player.name}</span>
+          <span class="win-rate">${x.player.winRate}</span>
         `;
-        listEl.appendChild(li);
-      });
-    }
-
-    function renderSummary(result) {
-      if (!result) {
-        els.summary.innerHTML = "<div>Team A 총점: -</div><div>Team B 총점: -</div><div>점수 차이: -</div><div>우세 팀: -</div>";
-        return;
+          listEl.appendChild(li);
+        });
       }
 
-      const advantageText = result.diff === 0
-        ? "동점"
-        : result.totalA > result.totalB
-          ? `Team A (${result.diff}점 우세)`
-          : `Team B (${result.diff}점 우세)`;
+      function renderTeamB(listEl, assignment) {
+        listEl.innerHTML = "";
 
-      els.summary.innerHTML = `
+        if (!assignment) {
+          return;
+        }
+
+        assignment.forEach((x) => {
+          const li = document.createElement("li");
+          li.className = "rowB";
+          li.innerHTML = `
+          <span class="roleB">${x.role}</span>
+          <span class="name">${x.player.name}</span>
+          <span class="win-rate">${x.player.winRate}</span>
+        `;
+          listEl.appendChild(li);
+        });
+      }
+
+      function renderSummary(result) {
+        if (!result) {
+          els.summary.innerHTML =
+            "<div>Team A 총점: -</div><div>Team B 총점: -</div><div>점수 차이: -</div><div>우세 팀: -</div>";
+          return;
+        }
+
+        const advantageText =
+          result.diff === 0
+            ? "동점"
+            : result.totalA > result.totalB
+              ? `Team A (${result.diff}점 우세)`
+              : `Team B (${result.diff}점 우세)`;
+
+        els.summary.innerHTML = `
         <div>Team A 총점: ${result.totalA}</div>
         <div>Team B 총점: ${result.totalB}</div>
         <div>점수 차이: ${result.diff}</div>
         <div>우세 팀: ${advantageText}</div>
       `;
-    }
-
-    function renderResult(result) {
-      renderTeam(els.teamAList, result?.teamA);
-      renderTeam(els.teamBList, result?.teamB);
-      renderSummary(result);
-      els.copyBtn.disabled = !result;
-    }
-
-    function renderCasePicker() {
-      els.casePicker.innerHTML = "";
-
-      if (!candidateResults.length) return;
-
-      const title = document.createElement("span");
-      title.className = "case-title";
-      title.textContent = "추천 경우:";
-      els.casePicker.appendChild(title);
-
-      candidateResults.forEach((result, index) => {
-        const btn = document.createElement("button");
-        btn.className = `case-btn ${index === selectedCaseIndex ? "active" : ""}`.trim();
-        btn.type = "button";
-        btn.textContent = `${index + 1}안 (차이 ${result.diff})`;
-        btn.addEventListener("click", () => selectCase(index));
-        els.casePicker.appendChild(btn);
-      });
-    }
-
-    function selectCase(index) {
-      selectedCaseIndex = index;
-      lastResult = candidateResults[index] || null;
-      renderResult(lastResult);
-      renderCasePicker();
-    }
-
-    function currentResultText() {
-      if (!lastResult) return "복사할 결과가 없습니다.";
-
-      const linesA = lastResult.teamA.map((x) => `- ${x.role}: ${x.player.name}`);
-      const linesB = lastResult.teamB.map((x) => `- ${x.role}: ${x.player.name}`);
-      const advantageText = lastResult.diff === 0
-        ? "우세 팀: 동점"
-        : lastResult.totalA > lastResult.totalB
-          ? `우세 팀: Team A (${lastResult.diff}점 우세)`
-          : `우세 팀: Team B (${lastResult.diff}점 우세)`;
-
-      return [
-        "[Team A]",
-        ...linesA,
-        `총점: ${lastResult.totalA}`,
-        "",
-        "[Team B]",
-        ...linesB,
-        `총점: ${lastResult.totalB}`,
-        "",
-        `점수 차이: ${lastResult.diff}`,
-        advantageText,
-      ].join("\n");
-    }
-
-    // 시트 데이터 로드 (fetch 우선, 실패 시 gviz script 폴백)
-    async function loadSheetData() {
-      if (!SHEET_URL || SHEET_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_URL_HERE")) {
-        throw new Error("SHEET_URL에 공개된 Google Sheet URL을 넣어주세요.");
       }
 
-      let rows = [];
-      let fetchError = null;
+      function renderResult(result) {
+        renderTeamA(els.teamAList, result?.teamA);
+        renderTeamB(els.teamBList, result?.teamB);
+        renderSummary(result);
+        els.copyBtn.disabled = !result;
+      }
 
-      try {
-        const fetchUrl = SHEET_URL.includes("/gviz/tq")
-          ? buildGvizUrlFromSheetUrl(SHEET_URL, "fetch")
-          : SHEET_URL;
+      function renderCasePicker() {
+        els.casePicker.innerHTML = "";
 
-        const res = await fetch(fetchUrl, { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error(`데이터 요청 실패: ${res.status}`);
+        if (!candidateResults.length) return;
+
+        const title = document.createElement("span");
+        title.className = "case-title";
+        title.textContent = "추천 경우:";
+        els.casePicker.appendChild(title);
+
+        candidateResults.forEach((result, index) => {
+          const btn = document.createElement("button");
+          btn.className =
+            `case-btn ${index === selectedCaseIndex ? "active" : ""}`.trim();
+          btn.type = "button";
+          btn.textContent = `${index + 1}안 (차이 ${result.diff})`;
+          btn.addEventListener("click", () => selectCase(index));
+          els.casePicker.appendChild(btn);
+        });
+      }
+
+      function selectCase(index) {
+        selectedCaseIndex = index;
+        lastResult = candidateResults[index] || null;
+        renderResult(lastResult);
+        renderCasePicker();
+      }
+
+      function currentResultText() {
+        if (!lastResult) return "복사할 결과가 없습니다.";
+
+        const linesA = lastResult.teamA.map(
+          (x) => `- ${x.role}: ${x.player.name}`,
+        );
+        const linesB = lastResult.teamB.map(
+          (x) => `- ${x.role}: ${x.player.name}`,
+        );
+        const advantageText =
+          lastResult.diff === 0
+            ? "우세 팀: 동점"
+            : lastResult.totalA > lastResult.totalB
+              ? `우세 팀: Team A (${lastResult.diff}점 우세)`
+              : `우세 팀: Team B (${lastResult.diff}점 우세)`;
+
+        return [
+          "[Team A]",
+          ...linesA,
+          `총점: ${lastResult.totalA}`,
+          "",
+          "[Team B]",
+          ...linesB,
+          `총점: ${lastResult.totalB}`,
+          "",
+          `점수 차이: ${lastResult.diff}`,
+          advantageText,
+        ].join("\n");
+      }
+
+      // 시트 데이터 로드 (fetch 우선, 실패 시 gviz script 폴백)
+      async function loadSheetData() {
+        if (
+          !SHEET_URL ||
+          SHEET_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_URL_HERE")
+        ) {
+          throw new Error("SHEET_URL에 공개된 Google Sheet URL을 넣어주세요.");
         }
 
-        const text = await res.text();
-        rows = fetchUrl.includes("gviz") ? parseGviz(text) : parseCsv(text);
-      } catch (err) {
-        fetchError = err;
-      }
+        let rows = [];
+        let fetchError = null;
 
-      // file://(드래그 실행) 환경에서 fetch 실패 시 gviz 스크립트 방식으로 재시도
-      if (!rows.length) {
         try {
-          const gvizUrl = buildGvizUrlFromSheetUrl(SHEET_URL);
-          rows = await loadViaGvizScript(gvizUrl);
-        } catch {
-          if (fetchError) {
-            throw new Error(`데이터 로드 실패: ${fetchError.message}`);
+          const fetchUrl = SHEET_URL.includes("/gviz/tq")
+            ? buildGvizUrlFromSheetUrl(SHEET_URL, "fetch")
+            : SHEET_URL;
+
+          const res = await fetch(fetchUrl, { cache: "no-store" });
+          if (!res.ok) {
+            throw new Error(`데이터 요청 실패: ${res.status}`);
           }
-          throw new Error("데이터 로드 실패: 시트 공개 상태와 URL 형식을 확인하세요.");
-        }
-      }
 
-      const players = normalizePlayers(rows);
-      const invalid = players.filter((p) => !isValidPlayer(p));
-      if (invalid.length > 0) {
-        const details = invalid
-          .slice(0, 3)
-          .map((p) => `${p.name}[${playerValidationErrors(p).join(", ")}]`)
-          .join(" / ");
-        throw new Error(`유효하지 않은 데이터가 ${invalid.length}개 있습니다. ${details} | 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`);
-      }
-
-      allPlayers = players;
-      activePlayers = players.filter((p) => p.participate === "O");
-
-      els.activeCount.textContent = `참가자: ${activePlayers.length}명`;
-      els.lastUpdated.textContent = `데이터 갱신: ${nowKstString()}`;
-    }
-
-    function clearResultForInvalidCount() {
-      lastResult = null;
-      candidateResults = [];
-      selectedCaseIndex = 0;
-      renderResult(null);
-      renderCasePicker();
-      setStatus("현재 참가 인원이 10명이 아닙니다.", "error");
-    }
-
-    async function refreshData(showStatus = true) {
-      try {
-        await loadSheetData();
-
-        // 자동 새로고침은 현재 결과를 깨지 않도록 상태 텍스트만 갱신
-        if (showStatus) {
-          setStatus("데이터를 불러왔습니다.", "ok");
+          const text = await res.text();
+          rows = fetchUrl.includes("gviz") ? parseGviz(text) : parseCsv(text);
+        } catch (err) {
+          fetchError = err;
         }
 
-        if (activePlayers.length !== 10) {
-          clearResultForInvalidCount();
+        // file://(드래그 실행) 환경에서 fetch 실패 시 gviz 스크립트 방식으로 재시도
+        if (!rows.length) {
+          try {
+            const gvizUrl = buildGvizUrlFromSheetUrl(SHEET_URL);
+            rows = await loadViaGvizScript(gvizUrl);
+          } catch {
+            if (fetchError) {
+              throw new Error(`데이터 로드 실패: ${fetchError.message}`);
+            }
+            throw new Error(
+              "데이터 로드 실패: 시트 공개 상태와 URL 형식을 확인하세요.",
+            );
+          }
         }
-      } catch (err) {
-        setStatus(err.message || "데이터 로드 중 오류가 발생했습니다.", "error");
+
+        const players = normalizePlayers(rows);
+        const invalid = players.filter((p) => !isValidPlayer(p));
+        if (invalid.length > 0) {
+          const details = invalid
+            .slice(0, 3)
+            .map((p) => `${p.name}[${playerValidationErrors(p).join(", ")}]`)
+            .join(" / ");
+          throw new Error(
+            `유효하지 않은 데이터가 ${invalid.length}개 있습니다. ${details} | 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`,
+          );
+        }
+
+        allPlayers = players;
+        activePlayers = players.filter((p) => p.participate === "O");
+
+        els.activeCount.textContent = `참가자: ${activePlayers.length}명`;
+        els.lastUpdated.textContent = `데이터 갱신: ${nowKstString()}`;
       }
-    }
 
-    function buildTeams() {
-      if (activePlayers.length !== 10) {
-        clearResultForInvalidCount();
-        return;
-      }
-
-      const options = {
-        laneBalancePriority: els.laneBalanceMode.checked,
-        minRoleScoreEnabled: els.minRoleScoreEnabled.checked,
-        minRoleScore: Number(els.minRoleScoreSelect.value),
-      };
-      const topCases = buildTopTeamCases(activePlayers, 3, options);
-
-      if (!topCases.length) {
+      function clearResultForInvalidCount() {
         lastResult = null;
         candidateResults = [];
         selectedCaseIndex = 0;
         renderResult(null);
         renderCasePicker();
-        setStatus("조건을 만족하는 팀 구성을 찾지 못했습니다.", "error");
-        return;
+        setStatus("현재 참가 인원이 10명이 아닙니다.", "error");
       }
 
-      candidateResults = topCases;
-      selectedCaseIndex = 0;
-      selectCase(0);
-      const modeText = options.laneBalancePriority ? "라인 밸런스 우선" : "총점 밸런스 우선";
-      const minScoreText = options.minRoleScoreEnabled ? `, 최소 포지션 점수 ${options.minRoleScore}` : "";
-      setStatus(`팀 구성이 완료되었습니다. (${modeText}${minScoreText}, 상위 ${candidateResults.length}개 경우)`, "ok");
-    }
+      async function refreshData(showStatus = true) {
+        try {
+          await loadSheetData();
 
-    async function copyResult() {
-      if (!lastResult) return;
-      const text = currentResultText();
+          // 자동 새로고침은 현재 결과를 깨지 않도록 상태 텍스트만 갱신
+          if (showStatus) {
+            setStatus("데이터를 불러왔습니다.", "ok");
+          }
 
-      try {
-        await navigator.clipboard.writeText(text);
-        setStatus("결과를 클립보드에 복사했습니다.", "ok");
-      } catch {
-        setStatus("복사에 실패했습니다. 브라우저 권한을 확인하세요.", "error");
+          if (activePlayers.length !== 10) {
+            clearResultForInvalidCount();
+          }
+        } catch (err) {
+          setStatus(
+            err.message || "데이터 로드 중 오류가 발생했습니다.",
+            "error",
+          );
+        }
       }
-    }
 
-    function initEvents() {
-      els.buildBtn.addEventListener("click", buildTeams);
-      els.refreshBtn.addEventListener("click", () => refreshData(true));
-      els.copyBtn.addEventListener("click", copyResult);
-    }
+      function buildTeams() {
+        if (activePlayers.length !== 10) {
+          clearResultForInvalidCount();
+          return;
+        }
 
-    async function init() {
-      initEvents();
-      await refreshData(false);
+        const options = {
+          laneBalancePriority: els.laneBalanceMode.checked,
+          minRoleScoreEnabled: els.minRoleScoreEnabled.checked,
+          minRoleScore: Number(els.minRoleScoreSelect.value),
+        };
+        const topCases = buildTopTeamCases(activePlayers, 3, options);
 
-      // 5초 주기로 자동 새로고침
-      setInterval(() => {
-        refreshData(false);
-      }, 5000);
-    }
+        if (!topCases.length) {
+          lastResult = null;
+          candidateResults = [];
+          selectedCaseIndex = 0;
+          renderResult(null);
+          renderCasePicker();
+          setStatus("조건을 만족하는 팀 구성을 찾지 못했습니다.", "error");
+          return;
+        }
 
-    init();
-  </script>
-</body>
+        candidateResults = topCases;
+        selectedCaseIndex = 0;
+        selectCase(0);
+        const modeText = options.laneBalancePriority
+          ? "라인 밸런스 우선"
+          : "총점 밸런스 우선";
+        const minScoreText = options.minRoleScoreEnabled
+          ? `, 최소 포지션 점수 ${options.minRoleScore}`
+          : "";
+        setStatus(
+          `팀 구성이 완료되었습니다. (${modeText}${minScoreText}, 상위 ${candidateResults.length}개 경우)`,
+          "ok",
+        );
+      }
+
+      async function copyResult() {
+        if (!lastResult) return;
+        const text = currentResultText();
+
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("결과를 클립보드에 복사했습니다.", "ok");
+        } catch {
+          setStatus(
+            "복사에 실패했습니다. 브라우저 권한을 확인하세요.",
+            "error",
+          );
+        }
+      }
+
+      // 승/패 적용
+      async function winPoint(team) {
+        if (!lastResult) {
+          setStatus(
+            "팀을 구성하지 않고 승리 버튼을 누를 수 없습니다.",
+            "error",
+          );
+          return;
+        }
+        const winners =
+          team === "A"
+            ? lastResult.teamA.map((x) => x.player.name)
+            : lastResult.teamB.map((x) => x.player.name);
+        const losers =
+          team === "B"
+            ? lastResult.teamA.map((x) => x.player.name)
+            : lastResult.teamB.map((x) => x.player.name);
+        const POST_URL =
+          "https://script.google.com/macros/s/AKfycbwO1AuHldRdO0mLv6PypbURHB5MO2YCJs0BwbaXND_VM2BdrwTb-aEAuzhZLyWhS_g2/exec";
+        if (confirm(`${team} 팀의 승리를 확정하시겠습니까?`)) {
+          try {
+            await fetch(POST_URL, {
+              method: "POST",
+              mode: "no-cors",
+              body: JSON.stringify({ winners, losers }),
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+            alert(`${team} 팀 승리! 데이터를 반영하였습니다.`);
+          } catch (err) {
+            alert("ERROR! 데이터 반영에 실패하였습니다!");
+          }
+        } else {
+          alert("승리 확정을 취소하였습니다.");
+        }
+        // 여기에 함수 생성
+      }
+
+      function initEvents() {
+        els.buildBtn.addEventListener("click", buildTeams);
+        els.refreshBtn.addEventListener("click", () => refreshData(true));
+        els.copyBtn.addEventListener("click", copyResult);
+      }
+
+      async function init() {
+        initEvents();
+        await refreshData(false);
+
+        // 5초 주기로 자동 새로고침
+        setInterval(() => {
+          refreshData(false);
+        }, 5000);
+      }
+
+      init();
+    </script>
+  </body>
 </html>
-
