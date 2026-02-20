@@ -611,6 +611,45 @@
         return new Date().toLocaleString("ko-KR", { hour12: false });
       }
 
+      function toKstDateTimeString(date = new Date()) {
+        const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+        const y = kst.getUTCFullYear();
+        const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(kst.getUTCDate()).padStart(2, "0");
+        const hh = String(kst.getUTCHours()).padStart(2, "0");
+        const mm = String(kst.getUTCMinutes()).padStart(2, "0");
+        const ss = String(kst.getUTCSeconds()).padStart(2, "0");
+        return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+      }
+
+      function buildMatchRecords(result, winnerTeam) {
+        const playedAt = toKstDateTimeString();
+        const rows = [];
+        const appendRows = (assignment, teamKey) => {
+          assignment.forEach((x) => {
+            rows.push({
+              "No.": "",
+              날짜: playedAt,
+              이름: x.player.name,
+              팀: teamKey,
+              포지션: x.role,
+              개인점수: x.score,
+              승리여부: winnerTeam,
+              no: "",
+              date: playedAt,
+              name: x.player.name,
+              team: teamKey,
+              position: x.role,
+              personalScore: x.score,
+              winner: winnerTeam,
+            });
+          });
+        };
+        appendRows(result.teamA, "A");
+        appendRows(result.teamB, "B");
+        return rows;
+      }
+
       // n명 중 k명 조합 생성
       function combinations(arr, k) {
         const result = [];
@@ -1245,6 +1284,16 @@
           team === "B"
             ? lastResult.teamA.map((x) => x.player.name)
             : lastResult.teamB.map((x) => x.player.name);
+        const records = buildMatchRecords(lastResult, team);
+        const recordRows = records.map((r) => [
+          r["No."],
+          r["날짜"],
+          r["이름"],
+          r["팀"],
+          r["포지션"],
+          r["개인점수"],
+          r["승리여부"],
+        ]);
         const POST_URL =
           "https://script.google.com/macros/s/AKfycbwO1AuHldRdO0mLv6PypbURHB5MO2YCJs0BwbaXND_VM2BdrwTb-aEAuzhZLyWhS_g2/exec";
         if (confirm(`${team} 팀의 승리를 확정하시겠습니까?`)) {
@@ -1252,7 +1301,13 @@
             await fetch(POST_URL, {
               method: "POST",
               mode: "no-cors",
-              body: JSON.stringify({ winners, losers }),
+              body: JSON.stringify({
+                winners,
+                losers,
+                winnerTeam: team,
+                records,
+                recordRows,
+              }),
               headers: {
                 "Content-Type": "application/json",
               },
