@@ -363,6 +363,16 @@
         서포터: "Support",
         서포트: "Support",
       };
+      const FIXED_TEAM_MAP = {
+        a: "A",
+        b: "B",
+        A: "A",
+        B: "B",
+        팀a: "A",
+        팀b: "B",
+        teama: "A",
+        teamb: "B",
+      };
 
       let allPlayers = [];
       let activePlayers = [];
@@ -530,6 +540,13 @@
         return mapped ?? text;
       }
 
+      function normalizeFixedTeam(raw) {
+        const text = String(raw ?? "").trim();
+        if (!text || text === "-" || text === "자동") return "";
+        const mapped = FIXED_TEAM_MAP[text.toLowerCase()] ?? FIXED_TEAM_MAP[text];
+        return mapped ?? text;
+      }
+
       function normalizePlayers(rows) {
         return rows
           .map((r) => ({
@@ -545,6 +562,7 @@
                 : Number(r["오더력"]),
             participate: String(r["참가"] ?? "").trim(),
             fixedRole: normalizeFixedRole(r["고정포지션"]),
+            fixedTeam: normalizeFixedTeam(r["고정팀"]),
 
             win: Number(r["승"] ?? 0),
             lose: Number(r["패"] ?? 0),
@@ -573,6 +591,9 @@
         }
         if (!(p.fixedRole === "" || ROLES.includes(p.fixedRole))) {
           errors.push(`고정포지션:${p.fixedRole}`);
+        }
+        if (!(p.fixedTeam === "" || p.fixedTeam === "A" || p.fixedTeam === "B")) {
+          errors.push(`고정팀:${p.fixedTeam}`);
         }
         return errors;
       }
@@ -686,6 +707,12 @@
         return assignment.every((x) => x.score >= minRoleScore);
       }
 
+      function splitPassesFixedTeam(teamA, teamB) {
+        const teamAValid = teamA.every((p) => p.fixedTeam !== "B");
+        const teamBValid = teamB.every((p) => p.fixedTeam !== "A");
+        return teamAValid && teamBValid;
+      }
+
       // 한 팀 분할(teamA/teamB)에 대해 최적 포지션 배정을 계산
       function findBestAssignmentForSplit(teamA, teamB, options) {
         if (hasDuplicateFixedRole(teamA) || hasDuplicateFixedRole(teamB)) {
@@ -753,6 +780,7 @@
             .sort()
             .join("|");
           const teamB = players10.filter((p) => !teamA.includes(p));
+          if (!splitPassesFixedTeam(teamA, teamB)) continue;
           const keyB = teamB
             .map((p) => p.name)
             .sort()
@@ -1051,7 +1079,7 @@
             .map((p) => `${p.name}[${playerValidationErrors(p).join(", ")}]`)
             .join(" / ");
           throw new Error(
-            `유효하지 않은 데이터가 ${invalid.length}개 있습니다. ${details} | 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support)을 확인하세요.`,
+            `유효하지 않은 데이터가 ${invalid.length}개 있습니다. ${details} | 점수(1~100 정수), 오더력(0~100 정수), 참가(O/X), 고정포지션(빈값/Top/Jungle/Mid/ADC/Support), 고정팀(빈값/A/B)을 확인하세요.`,
           );
         }
 
@@ -1094,6 +1122,20 @@
       function buildTeams() {
         if (activePlayers.length !== 10) {
           clearResultForInvalidCount();
+          return;
+        }
+        const fixedA = activePlayers.filter((p) => p.fixedTeam === "A").length;
+        const fixedB = activePlayers.filter((p) => p.fixedTeam === "B").length;
+        if (fixedA > 5 || fixedB > 5) {
+          lastResult = null;
+          candidateResults = [];
+          selectedCaseIndex = 0;
+          renderResult(null);
+          renderCasePicker();
+          setStatus(
+            `고정팀 인원이 과다합니다. A 고정 ${fixedA}명, B 고정 ${fixedB}명 (각 팀 최대 5명)`,
+            "error",
+          );
           return;
         }
 
