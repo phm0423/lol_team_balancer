@@ -273,6 +273,52 @@
         gap: 15px;
       }
 
+      .matchup-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: grid;
+        gap: 10px;
+        box-shadow: var(--shadow);
+      }
+
+      .matchup-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .matchup-controls select {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: #fff;
+        color: var(--ink);
+        font-size: 14px;
+      }
+
+      .matchup-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .matchup-cell {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px;
+      }
+
+      .matchup-cell strong {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+
       @media (max-width: 860px), (hover: none) and (pointer: coarse) {
         body {
           background-size: 100% auto;
@@ -281,6 +327,14 @@
 
         .teams {
           grid-template-columns: 1fr;
+        }
+
+        .matchup-controls {
+          grid-template-columns: 1fr;
+        }
+
+        .matchup-grid {
+          grid-template-columns: 1fr 1fr;
         }
       }
     </style>
@@ -339,12 +393,23 @@
         <div>Team B 총점: -</div>
         <div>점수 차이: -</div>
       </div>
+
+      <section class="matchup-panel">
+        <h2>상대 전적</h2>
+        <div class="matchup-controls">
+          <select id="matchupPlayerSelect"></select>
+          <select id="matchupOpponentSelect"></select>
+        </div>
+        <div id="matchupSummary" class="matchup-grid"></div>
+      </section>
     </div>
 
     <script>
       // 구글 시트 공개 URL (CSV 또는 gviz JSON URL)
       const SHEET_URL =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9c2xLdG71vf17_9o5NKdno-NLqzDdDLr2nLLeXZiyMEvQBALw84Bm6RYPFg_mbWoGTbN3XkBBOkc/pub?output=csv";
+      const MAIN_GID = "0";
+      const HISTORY_GID = "1835878421";
 
       const ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
       const FIXED_ROLE_MAP = {
@@ -376,6 +441,7 @@
 
       let allPlayers = [];
       let activePlayers = [];
+      let historyRecords = [];
       let lastResult = null;
       let candidateResults = [];
       let selectedCaseIndex = 0;
@@ -395,6 +461,9 @@
         teamAList: document.getElementById("teamAList"),
         teamBList: document.getElementById("teamBList"),
         summary: document.getElementById("summary"),
+        matchupPlayerSelect: document.getElementById("matchupPlayerSelect"),
+        matchupOpponentSelect: document.getElementById("matchupOpponentSelect"),
+        matchupSummary: document.getElementById("matchupSummary"),
       };
 
       // CSV 한 줄 파서 (따옴표/콤마 처리)
@@ -468,9 +537,13 @@
       }
 
       // CSV/pub 링크에서 gviz URL 구성 (mode: fetch | script)
-      function buildGvizUrlFromSheetUrl(sheetUrl, mode = "script") {
+      function buildGvizUrlFromSheetUrl(
+        sheetUrl,
+        mode = "script",
+        gidOverride = null,
+      ) {
         const url = new URL(sheetUrl);
-        const gid = url.searchParams.get("gid") || "0";
+        const gid = gidOverride ?? (url.searchParams.get("gid") || "0");
 
         if (!url.pathname.includes("/gviz/tq")) {
           url.pathname = url.pathname
@@ -569,6 +642,20 @@
             winRate: r["승률"] ?? 0,
           }))
           .filter((p) => p.name);
+      }
+
+      function normalizeHistoryRecords(rows) {
+        return rows
+          .map((r) => ({
+            no: String(r["No."] ?? "").trim(),
+            date: String(r["날짜"] ?? "").trim(),
+            name: String(r["이름"] ?? "").trim(),
+            team: String(r["팀"] ?? "").trim(),
+            position: String(r["포지션"] ?? "").trim(),
+            score: Number(r["개인점수"] ?? 0),
+            winner: String(r["승리여부"] ?? "").trim(),
+          }))
+          .filter((r) => r.no && r.name && (r.team === "A" || r.team === "B"));
       }
 
       // 입력 데이터 유효성 검사
@@ -1095,8 +1182,7 @@
         ].join("\n");
       }
 
-      // 시트 데이터 로드 (fetch 우선, 실패 시 gviz script 폴백)
-      async function loadSheetData() {
+      async function loadPublishedRowsByGid(gid) {
         if (
           !SHEET_URL ||
           SHEET_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_URL_HERE")
@@ -1108,7 +1194,9 @@
         let fetchError = null;
 
         try {
-          const gvizUrl = new URL(buildGvizUrlFromSheetUrl(SHEET_URL, "fetch"));
+          const gvizUrl = new URL(
+            buildGvizUrlFromSheetUrl(SHEET_URL, "fetch", gid),
+          );
           gvizUrl.searchParams.set("t", Date.now().toString());
           const res = await fetch(gvizUrl.toString(), { cache: "no-store" });
           if (!res.ok) {
@@ -1125,6 +1213,7 @@
         if (!rows.length) {
           try {
             const csvUrl = new URL(SHEET_URL);
+            csvUrl.searchParams.set("gid", gid);
             csvUrl.searchParams.set("t", Date.now().toString());
             const res = await fetch(csvUrl.toString(), { cache: "no-store" });
             if (!res.ok) {
@@ -1140,7 +1229,7 @@
         // file://(드래그 실행) 환경에서 fetch 실패 시 gviz 스크립트 방식으로 재시도
         if (!rows.length) {
           try {
-            const gvizUrl = buildGvizUrlFromSheetUrl(SHEET_URL);
+            const gvizUrl = buildGvizUrlFromSheetUrl(SHEET_URL, "script", gid);
             rows = await loadViaGvizScript(gvizUrl);
           } catch {
             if (fetchError) {
@@ -1151,7 +1240,94 @@
             );
           }
         }
+        return rows;
+      }
 
+      function rebuildOpponentOptions() {
+        const selectedPlayer = els.matchupPlayerSelect.value;
+        const prevOpponent = els.matchupOpponentSelect.value;
+        const names = allPlayers.map((p) => p.name).filter((n) => n && n !== selectedPlayer);
+        const options = ["전체", ...names];
+        els.matchupOpponentSelect.innerHTML = options
+          .map((name) => `<option value="${name}">${name}</option>`)
+          .join("");
+        els.matchupOpponentSelect.value = options.includes(prevOpponent)
+          ? prevOpponent
+          : "전체";
+      }
+
+      function renderMatchupSummary() {
+        const playerName = els.matchupPlayerSelect.value;
+        if (!playerName) {
+          els.matchupSummary.innerHTML = '<div class="matchup-cell">데이터 없음</div>';
+          return;
+        }
+
+        const player = allPlayers.find((p) => p.name === playerName);
+        const overallWin = Number(player?.win ?? 0);
+        const overallLose = Number(player?.lose ?? 0);
+        const overallGames = overallWin + overallLose;
+        const overallRate = String(player?.winRate ?? "-");
+
+        const opponent = els.matchupOpponentSelect.value || "전체";
+        let versusGames = 0;
+        let versusWins = 0;
+        let versusLosses = 0;
+        let versusRate = "-";
+
+        if (opponent !== "전체") {
+          const byMatch = new Map();
+          historyRecords.forEach((r) => {
+            if (!byMatch.has(r.no)) byMatch.set(r.no, new Map());
+            byMatch.get(r.no).set(r.name, r);
+          });
+
+          byMatch.forEach((playersInMatch) => {
+            const me = playersInMatch.get(playerName);
+            const opp = playersInMatch.get(opponent);
+            if (!me || !opp) return;
+            versusGames += 1;
+            if (me.team === me.winner) {
+              versusWins += 1;
+            } else {
+              versusLosses += 1;
+            }
+          });
+          versusRate =
+            versusGames > 0 ? `${((versusWins / versusGames) * 100).toFixed(1)}%` : "-";
+        }
+
+        els.matchupSummary.innerHTML = `
+          <div class="matchup-cell"><strong>기준 선수</strong>${playerName}</div>
+          <div class="matchup-cell"><strong>상대</strong>${opponent}</div>
+          <div class="matchup-cell"><strong>전체 전적(시트1)</strong>${overallWin}승 ${overallLose}패 (${overallRate})</div>
+          <div class="matchup-cell"><strong>전체 게임 수(시트1)</strong>${overallGames}</div>
+          <div class="matchup-cell"><strong>상대전적(시트2)</strong>${opponent === "전체" ? "-" : `${versusWins}승 ${versusLosses}패`}</div>
+          <div class="matchup-cell"><strong>상대 승률(시트2)</strong>${opponent === "전체" ? "-" : versusRate}</div>
+          <div class="matchup-cell"><strong>상대전적 게임 수</strong>${opponent === "전체" ? "-" : versusGames}</div>
+          <div class="matchup-cell"><strong>기준</strong>No. 동일 경기 기준 집계</div>
+        `;
+      }
+
+      function renderMatchupSelectors() {
+        const prevPlayer = els.matchupPlayerSelect.value;
+        const names = allPlayers.map((p) => p.name).filter(Boolean);
+        els.matchupPlayerSelect.innerHTML = names
+          .map((name) => `<option value="${name}">${name}</option>`)
+          .join("");
+        if (!names.length) {
+          els.matchupOpponentSelect.innerHTML = "";
+          renderMatchupSummary();
+          return;
+        }
+        els.matchupPlayerSelect.value = names.includes(prevPlayer) ? prevPlayer : names[0];
+        rebuildOpponentOptions();
+        renderMatchupSummary();
+      }
+
+      // 시트 데이터 로드 (fetch 우선, 실패 시 gviz script 폴백)
+      async function loadSheetData() {
+        const rows = await loadPublishedRowsByGid(MAIN_GID);
         const players = normalizePlayers(rows);
         const invalid = players.filter((p) => !isValidPlayer(p));
         if (invalid.length > 0) {
@@ -1166,9 +1342,16 @@
 
         allPlayers = players;
         activePlayers = players.filter((p) => p.participate === "O");
+        try {
+          const historyRows = await loadPublishedRowsByGid(HISTORY_GID);
+          historyRecords = normalizeHistoryRecords(historyRows);
+        } catch {
+          historyRecords = [];
+        }
 
         els.activeCount.textContent = `참가자: ${activePlayers.length}명`;
         els.lastUpdated.textContent = `데이터 갱신: ${nowKstString()}`;
+        renderMatchupSelectors();
       }
 
       function clearResultForInvalidCount() {
@@ -1326,6 +1509,11 @@
         els.buildBtn.addEventListener("click", buildTeams);
         els.refreshBtn.addEventListener("click", () => refreshData(true));
         els.copyBtn.addEventListener("click", copyResult);
+        els.matchupPlayerSelect.addEventListener("change", () => {
+          rebuildOpponentOptions();
+          renderMatchupSummary();
+        });
+        els.matchupOpponentSelect.addEventListener("change", renderMatchupSummary);
       }
 
       async function init() {
