@@ -1041,19 +1041,33 @@
         let fetchError = null;
 
         try {
-          const fetchUrl = SHEET_URL.includes("/gviz/tq")
-            ? buildGvizUrlFromSheetUrl(SHEET_URL, "fetch")
-            : SHEET_URL;
-
-          const res = await fetch(fetchUrl, { cache: "no-store" });
+          const gvizUrl = new URL(buildGvizUrlFromSheetUrl(SHEET_URL, "fetch"));
+          gvizUrl.searchParams.set("t", Date.now().toString());
+          const res = await fetch(gvizUrl.toString(), { cache: "no-store" });
           if (!res.ok) {
             throw new Error(`데이터 요청 실패: ${res.status}`);
           }
 
           const text = await res.text();
-          rows = fetchUrl.includes("gviz") ? parseGviz(text) : parseCsv(text);
+          rows = parseGviz(text);
         } catch (err) {
           fetchError = err;
+        }
+
+        // gviz fetch가 실패/빈값이면 CSV 원본도 캐시 우회로 재시도
+        if (!rows.length) {
+          try {
+            const csvUrl = new URL(SHEET_URL);
+            csvUrl.searchParams.set("t", Date.now().toString());
+            const res = await fetch(csvUrl.toString(), { cache: "no-store" });
+            if (!res.ok) {
+              throw new Error(`CSV 데이터 요청 실패: ${res.status}`);
+            }
+            const text = await res.text();
+            rows = parseCsv(text);
+          } catch (err) {
+            fetchError = fetchError || err;
+          }
         }
 
         // file://(드래그 실행) 환경에서 fetch 실패 시 gviz 스크립트 방식으로 재시도
