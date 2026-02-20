@@ -221,6 +221,19 @@
         border-radius: 10px;
         padding: 8px 10px;
       }
+      .rowA[draggable="true"],
+      .rowB[draggable="true"] {
+        cursor: grab;
+      }
+      .rowA.dragging,
+      .rowB.dragging {
+        opacity: 0.45;
+      }
+      .rowA.drop-target,
+      .rowB.drop-target {
+        outline: 2px dashed var(--brand);
+        outline-offset: 2px;
+      }
 
       .roleB {
         font-weight: 700;
@@ -356,6 +369,7 @@
       let lastResult = null;
       let candidateResults = [];
       let selectedCaseIndex = 0;
+      let dragState = null;
 
       const els = {
         buildBtn: document.getElementById("buildBtn"),
@@ -771,42 +785,132 @@
         return candidates.slice(0, topN);
       }
 
-      function renderTeamA(listEl, assignment) {
+      function recalcResultMetrics(result) {
+        if (!result) return;
+        result.totalA = totalScore(result.teamA);
+        result.totalB = totalScore(result.teamB);
+        result.diff = Math.abs(result.totalA - result.totalB);
+        const lane = laneGapMetrics(result.teamA, result.teamB);
+        result.laneMaxDiff = lane.laneMaxDiff;
+        result.laneSumDiff = lane.laneSumDiff;
+      }
+
+      function remapAssignmentToRoles(assignment) {
+        return assignment.map((entry, index) => {
+          const role = ROLES[index];
+          return {
+            role,
+            player: entry.player,
+            score: entry.player[role],
+          };
+        });
+      }
+
+      function applyManualRoleReorder(teamKey, fromIndex, toIndex) {
+        if (!lastResult) return;
+        if (fromIndex === toIndex) return;
+
+        const targetAssignment = teamKey === "A" ? lastResult.teamA : lastResult.teamB;
+        if (!targetAssignment) return;
+        if (
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= targetAssignment.length ||
+          toIndex >= targetAssignment.length
+        ) {
+          return;
+        }
+
+        const [moved] = targetAssignment.splice(fromIndex, 1);
+        targetAssignment.splice(toIndex, 0, moved);
+        if (teamKey === "A") {
+          lastResult.teamA = remapAssignmentToRoles(targetAssignment);
+        } else {
+          lastResult.teamB = remapAssignmentToRoles(targetAssignment);
+        }
+
+        recalcResultMetrics(lastResult);
+        renderResult(lastResult);
+        renderCasePicker();
+        setStatus("드래그로 포지션을 임시 변경했습니다.", "ok");
+      }
+
+      function handleRowDragStart(event) {
+        const row = event.currentTarget;
+        dragState = {
+          team: row.dataset.team,
+          index: Number(row.dataset.index),
+        };
+        row.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", `${dragState.team}:${dragState.index}`);
+      }
+
+      function handleRowDragOver(event) {
+        if (!dragState) return;
+        const row = event.currentTarget;
+        if (row.dataset.team !== dragState.team) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("drop-target");
+      }
+
+      function handleRowDragLeave(event) {
+        event.currentTarget.classList.remove("drop-target");
+      }
+
+      function handleRowDrop(event) {
+        event.preventDefault();
+        const row = event.currentTarget;
+        row.classList.remove("drop-target");
+        if (!dragState) return;
+        const toTeam = row.dataset.team;
+        const toIndex = Number(row.dataset.index);
+        if (toTeam !== dragState.team) return;
+        applyManualRoleReorder(toTeam, dragState.index, toIndex);
+      }
+
+      function handleRowDragEnd(event) {
+        event.currentTarget.classList.remove("dragging");
+        document
+          .querySelectorAll(".drop-target")
+          .forEach((el) => el.classList.remove("drop-target"));
+        dragState = null;
+      }
+
+      function renderTeam(listEl, assignment, teamKey, rowClass, roleClass) {
         listEl.innerHTML = "";
 
         if (!assignment) {
           return;
         }
 
-        assignment.forEach((x) => {
+        assignment.forEach((x, index) => {
           const li = document.createElement("li");
-          li.className = "rowA";
+          li.className = rowClass;
+          li.draggable = true;
+          li.dataset.team = teamKey;
+          li.dataset.index = String(index);
           li.innerHTML = `
-          <span class="roleA">${x.role}</span>
+          <span class="${roleClass}">${x.role}</span>
           <span class="name">${x.player.name}</span>
           <span class="win-rate">${x.player.winRate}</span>
         `;
+          li.addEventListener("dragstart", handleRowDragStart);
+          li.addEventListener("dragover", handleRowDragOver);
+          li.addEventListener("dragleave", handleRowDragLeave);
+          li.addEventListener("drop", handleRowDrop);
+          li.addEventListener("dragend", handleRowDragEnd);
           listEl.appendChild(li);
         });
       }
 
+      function renderTeamA(listEl, assignment) {
+        renderTeam(listEl, assignment, "A", "rowA", "roleA");
+      }
+
       function renderTeamB(listEl, assignment) {
-        listEl.innerHTML = "";
-
-        if (!assignment) {
-          return;
-        }
-
-        assignment.forEach((x) => {
-          const li = document.createElement("li");
-          li.className = "rowB";
-          li.innerHTML = `
-          <span class="roleB">${x.role}</span>
-          <span class="name">${x.player.name}</span>
-          <span class="win-rate">${x.player.winRate}</span>
-        `;
-          listEl.appendChild(li);
-        });
+        renderTeam(listEl, assignment, "B", "rowB", "roleB");
       }
 
       function renderSummary(result) {
